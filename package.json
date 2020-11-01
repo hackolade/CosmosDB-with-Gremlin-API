@@ -1,0 +1,45 @@
+{
+    "name": "CosmosDB-with-Gremlin-API",
+    "version": "0.0.1",
+    "versionDate": "2020-11-01",
+    "author": "hackolade",
+    "engines": {
+        "hackolade": "4.2.9",
+        "hackoladePlugin": "1.0.0"
+    },
+    "contributes": {
+        "target": {
+            "applicationTarget": "COSMOSDB-GREMLIN",
+            "title": "Cosmos DB Gremlin API",
+            "versions": []
+        },
+        "features": {
+            "jaySchemaHasRequiredPatternField": false,
+            "nestedCollections": {
+                "level": 1,
+                "isVirtual":true
+            },
+            "graphDB": true,
+            "relationships": {
+                "connectOnEntityLevel": true,
+                "hasData": true
+            },
+            "enableForwardEngineering": {
+                "jsonDocument": true,
+                "jsonSchema": true,
+                "excel": true,
+                "plugin": true
+            },
+            "enableReverseEngineering": {
+                "jsonDocument": true,
+                "jsonSchema": true,
+                "ddl": true,
+                "xsd": true,
+                "excel": true,
+                "plugin": true
+            },
+            "FEScriptCommentsSupported": false
+        }    },
+    "description": "Hackolade plugin for Cosmos DB with Gremlin API",
+    "disabled": false
+}

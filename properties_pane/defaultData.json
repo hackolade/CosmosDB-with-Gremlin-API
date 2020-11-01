@@ -1,0 +1,54 @@
+{
+	"model": {
+		"modelName": "New model",
+		"dbVersion": "",
+		"dbVendor": "CosmosDB",
+		"apiExperience": "Gremlin API",
+		"transactionalDataStored": 10,
+		"analyticalDataStored": 10,
+		"itemSize": 1,
+		"readsPerSecPerRegion": 100,
+		"writesPerSecPerRegion": 100
+	},
+	"container": {
+		"name": "New graph",
+		"traversalSource": "g",
+		"indexes": []
+	},
+	"collection": {
+		"collectionName": "New vertex",
+		"collectionUsers": [],
+		"collation": {}
+	},
+	"field": {
+		"name": "New property",
+		"propCardinality": {
+			"value": "single",
+			"valueDependencies": [{
+				"value": "list",
+				"dependency": {
+					"level": "parent",
+					"key": "childType",
+					"value": "multi-property"
+				}
+			}]
+		}
+	},
+	"patternField": {
+		"name": "^[a-zA-Z0-9_.-]{20}$"
+	},
+	"multipleField": {
+		"primaryKey": false
+	},
+	"subschema": {},
+	"arrayItem": {},
+	"choice": {},
+	"relationship": {
+		"name": "New edge"
+	},
+	"user": {},
+	"view": {
+		"viewOn": "",
+		"pipeline": ""
+	}
+}

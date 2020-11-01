@@ -1,0 +1,416 @@
+/*
+* Copyright © 2016-2019 by IntegrIT S.A. dba Hackolade.  All rights reserved.
+*
+* The copyright to the computer software herein is the property of IntegrIT S.A.
+* The software may be used and/or copied only with the written permission of 
+* IntegrIT S.A. or in accordance with the terms and conditions stipulated in 
+* the agreement/contract under which the software has been supplied. 
+
+
+In order to define custom properties for any object's properties pane, you may copy/paste from the following,
+making sure that you maintain a proper JSON format.
+
+			{
+				"propertyName": "Simple text",
+				"propertyKeyword": "simpletextProp",
+				"propertyType": "text",
+				"sampleGen": "&containerName|&entityName|&random|<value>"
+			},
+			{
+				"propertyName": "Text area",
+				"propertyKeyword": "textareaProp",
+				"propertyTooltip": "Popup for multi-line text entry",
+				"propertyType": "details",
+				"template": "textarea"
+			},
+			{
+				"propertyName": "Dropdown selection",
+				"propertyKeyword": "dropdownProp",
+				"propertyTooltip": "Select from list of options",
+				"propertyType": "select",
+				"options": [
+					"Option 1",
+					"Option 2",
+					"Option 3",
+					"Option 4"
+				]
+			},
+			{
+				"propertyName": "Numeric",
+				"propertyKeyword": "numericProp",
+				"propertyValidate": true,
+				"propertyType": "numeric",
+				"valueType": "number",
+				"allowNegative": false,
+				"sampleGen": "&containerName|&entityName|&random|<value>"
+			},
+			{
+				"propertyName": "Checkbox",
+				"propertyKeyword": "checkboxProp",
+				"propertyType": "checkbox"
+			},
+			{
+				"propertyName": "Group",
+				"propertyType": "group",
+				"propertyKeyword": "grpProp",
+				"propertyTooltip": "",
+				"structure": [
+					{
+						"propertyName": "Simple Grp Text",
+						"propertyKeyword": "simpleGrpText",
+						"propertyTooltip": "",
+						"propertyType": "text"
+					},
+					{
+						"propertyName": "Group Number",
+						"propertyKeyword": "grpNumber",
+						"propertyType": "numeric",
+						"valueType": "number",
+						"allowNegative": false
+					}
+				]
+			},
+// “groupInput” can have the following states - 0 items, 1 item, and many items.
+// “blockInput” has only 2 states - 0 items or 1 item. 
+// This gives us an easy way to represent it as an object and not as an array internally which is beneficial for processing 
+// and forward-engineering in particular.
+			{
+				"propertyName": "Block",
+				"propertyType": "block",
+				"propertyKeyword": "grpProp",
+				"propertyTooltip": "",
+				"structure": [
+					{
+						"propertyName": "Simple Grp Text",
+						"propertyKeyword": "simpleGrpText",
+						"propertyTooltip": "",
+						"propertyType": "text"
+					},
+					{
+						"propertyName": "Group Number",
+						"propertyKeyword": "grpNumber",
+						"propertyType": "numeric",
+						"valueType": "number",
+						"allowNegative": false
+					}
+				]
+			},
+			{
+				"propertyName": "Field List",
+				"propertyKeyword": "keyList",
+				"propertyType": "fieldList",
+				"template": "orderedList"
+			}, 
+			{
+				"propertyName": "List with attribute",
+				"propertyKeyword": "keyListOrder",
+				"propertyType": "fieldList",
+				"template": "orderedList",
+				"attributeList": [
+					"ascending",
+					"descending"
+				]
+			}
+
+*/
+
+[
+	{
+		"lowerTab": "Details",
+		"structure": [
+			{
+				"propertyName": "DB vendor",
+				"propertyKeyword": "dbVendor",
+				"shouldValidate": false,
+				"propertyTooltip": "DB vendor",
+				"propertyType": "select",
+				"options": [
+					"CosmosDB"
+				],
+				"disabledOption": true
+			},
+			{
+				"propertyName": "API Experience",
+				"propertyKeyword": "apiExperience",
+				"propertyTooltip": "Default experience",
+				"propertyType": "select",
+				"options": [
+					"SQL API",
+					"MongoDB API",
+					"Cassandra API",
+					"Gremlin API",
+					"Table API"
+				],
+				"disabledOption": true
+			},
+			{
+				"propertyName": "Tenant",
+				"propertyKeyword": "tenant",
+				"propertyTooltip": "Azure tenant",
+				"propertyType": "text"
+			},
+			{
+				"propertyName": "Account ID",
+				"propertyKeyword": "accountID",
+				"propertyTooltip": "Azure CosmosDB account ID",
+				"propertyType": "text"
+			},
+			{
+				"propertyName": "Resource group",
+				"propertyKeyword": "resGrp",
+				"propertyTooltip": "Resource Group",
+				"propertyType": "text"
+			},
+			{
+				"propertyName": "Subscription",
+				"propertyKeyword": "subscription",
+				"propertyTooltip": "Subscription",
+				"propertyType": "text"
+			},
+			{
+				"propertyName": "Preferred location",
+				"propertyKeyword": "preferredLocation",
+				"propertyTooltip": "Default experience",
+				"propertyType": "select",
+				"options": [
+					"",
+					"Central US", 
+					"East US",
+					"East US 2", 
+					"North Central US", 
+					"South Central US", 
+					"West US", 
+					"West US 2", 
+					"West Central US", 
+					"Canada East", 
+					"Canada Central",
+					"Mexico Central",
+					"Brazil South", 
+					"North Europe", 
+					"West Europe", 
+					"France Central",
+					"France South",
+					"Germany Central", 
+					"Germany North",
+					"Germany Northeast",
+					"Germany West Central",
+					"Norway West",
+					"Norway East",
+					"Spain Central",
+					"Switzerland North",
+					"Switzerland West",
+					"UK South", 
+					"UK West", 
+					"East Asia", 
+					"Southeast Asia", 
+					"Australia Central",
+					"Australia Central 2",
+					"Australia East", 
+					"Australia Southeast", 
+					"China East", 
+					"Chine East 2",
+					"China North", 
+					"China North 2", 
+					"Central India", 
+					"South India", 
+					"West India", 
+					"Japan East", 
+					"Japan West", 
+					"Korea Central",
+					"Korea South", 
+					"South Africa North",
+					"South Africa West",
+					"Israel Central",
+					"Qatar Central",
+					"UAE Central",
+					"UAE North",
+					"US DoD Central",
+					"US DoD East",
+					"US Gov Arizona",
+					"US Gov Iowa",
+					"US Gov Texas",
+					"US Gov Virginia",
+					"US Sec West",
+					"US Sec East"
+				]
+			},
+			{
+				"propertyName": "Locations",
+				"propertyKeyword": "locations",
+				"propertyTooltip": "List of locations enabled for the Cosmos DB account",
+				"propertyType": "group",
+				"structure": [
+					{
+						"propertyName": "Id",
+						"propertyKeyword": "locationId",
+						"propertyTooltip": "The unique identifier of the region within the database account",
+						"propertyType": "text"
+					},
+					{
+						"propertyName": "Name",
+						"propertyKeyword": "locationName",
+						"propertyTooltip": "The name of the region",
+						"propertyType": "text"
+					},
+					{
+						"propertyName": "Failover priority",
+						"propertyKeyword": "failoverPriority",
+						"propertyTooltip": "The failover priority of the region",
+						"propertyType": "numeric",
+						"valueType": "number"
+					},
+					{
+						"propertyName": "Zone redundant",
+						"propertyKeyword": "isZoneRedundant",
+						"propertyTooltip": "Flag to indicate whether or not this region is an AvailabilityZone region",
+						"propertyType": "checkbox"
+					}
+				]
+			},
+			{
+				"propertyName": "Enable multiple write locations",
+				"propertyKeyword": "enableMultipleWriteLocations",
+				"propertyTooltip": "Enables the account to write in multiple locations",
+				"propertyType": "checkbox"
+			},
+			{
+				"propertyName": "Total transactional data stored",
+				"propertyKeyword": "transactionalDataStored",
+				"propertyTooltip": "In GB, storage needed for transactional workload",
+				"propertyValidate": true,
+				"propertyType": "numeric",
+				"valueType": "number",
+				"allowNegative": false
+			},
+/*			{
+				"propertyName": "Use Analytical Store",
+				"propertyKeyword": "useAnalyticalStore",
+				"propertyTooltip": "Enable analytical store capability",
+				"propertyType": "checkbox"
+			},
+			{
+				"propertyName": "Total analytical data stored",
+				"propertyKeyword": "analyticalDataStored",
+				"propertyTooltip": "In GB, storage needed for analytical workload",
+				"propertyValidate": true,
+				"propertyType": "numeric",
+				"valueType": "number",
+				"allowNegative": false,
+				"dependency": {
+					"key": "useAnalyticalStore",
+					"value": true
+				}
+			},
+*/
+			{
+				"propertyName": "Avg item size",
+				"propertyKeyword": "itemSize",
+				"propertyTooltip": "In KB, expected size of documents, max 2048 KB",
+				"propertyValidate": true,
+				"propertyType": "numeric",
+				"valueType": "number",
+				"allowNegative": false,
+				"maxValue": 2048
+			},
+			{
+				"propertyName": "Reads/sec per region",
+				"propertyKeyword": "readsPerSecPerRegion",
+				"propertyTooltip": "Number of reads expected per second",
+				"propertyValidate": true,
+				"propertyType": "numeric",
+				"valueType": "number",
+				"allowNegative": false
+			},
+			{
+				"propertyName": "Writes/sec per region",
+				"propertyKeyword": "writesPerSecPerRegion",
+				"propertyTooltip": "Number of writes expected per second",
+				"propertyValidate": true,
+				"propertyType": "numeric",
+				"valueType": "number",
+				"allowNegative": false
+			},
+			{
+				"propertyName": "Default consistency policy",
+				"propertyKeyword": "defaultConsistency",
+				"propertyTooltip": "Default consistency policy level",
+				"propertyType": "select",
+				"options": [
+					"Session",
+					"Strong",
+					"Bounded staleness",
+					"Consistent prefix",
+					"Eventual"
+				]
+			},
+			{
+				"propertyName": "Enable automatic failover",
+				"propertyKeyword": "enableAutomaticFailover",
+				"propertyTooltip": "Enables automatic failover of the write region in the rare event that the region is unavailable due to an outage",
+				"propertyType": "checkbox"
+			},
+			{
+				"propertyName": "Virtual network filter enabled",
+				"propertyKeyword": "isVirtualNetworkFilterEnabled",
+				"propertyTooltip": "Flag to indicate whether to enable/disable Virtual Network ACL rules",
+				"propertyType": "checkbox"
+			},
+			{
+				"propertyName": "Virtual network rules",
+				"propertyKeyword": "virtualNetworkRules",
+				"propertyTooltip": "List of Virtual Network ACL rules configured for the Cosmos DB account",
+				"propertyType": "group",
+				"structure": [
+					{
+						"propertyName": "Id",
+						"propertyKeyword": "virtualNetworkId",
+						"propertyTooltip": "Resource ID of a subnet",
+						"propertyType": "text"
+					},
+					{
+						"propertyName": "Ignore missing VNet endpoint",
+						"propertyKeyword": "ignoreMissingVNetServiceEndpoint",
+						"propertyTooltip": "Create firewall rule before the virtual network has vnet service endpoint enabled",
+						"propertyType": "checkbox"
+					}
+				]
+			},
+			{
+				"propertyName": "IP-Range filter",
+				"propertyKeyword": "ipRangeFilter",
+				"propertyTooltip": "This value specifies the set of IP addresses or IP address ranges in CIDR form to be included as the allowed list of client IPs for a given database account",
+				"propertyType": "details",
+				"template": "textarea",
+				"markdown": false
+			},
+			{
+				"propertyName": "Tags",
+				"propertyKeyword": "tags",
+				"propertyTooltip": "A list of key-value pairs that describe the resource",
+				"propertyType": "group",
+				"structure": [
+					{
+						"propertyName": "Name",
+						"propertyKeyword": "tagName",
+						"propertyTooltip": "Tag name",
+						"propertyType": "text"
+					},
+					{
+						"propertyName": "Value",
+						"propertyKeyword": "tagValue",
+						"propertyTooltip": "Tag value",
+						"propertyType": "text"
+					}
+				]
+			},
+			{
+				"propertyName": "Comments",
+				"propertyKeyword": "comments",
+				"shouldValidate": false,
+				"propertyTooltip": "comments",
+				"propertyType": "details",
+				"template": "textarea"
+			}
+		]
+	}
+]
