@@ -7,6 +7,9 @@ const gremlin = require('gremlin');
 let client;
 let graphName = 'g';
 let defaultCardinality = 'single';
+let database;
+let accountKey;
+let gremlinEndpoint;
 
 const getSshConfig = (info) => {
 	const config = {
@@ -62,20 +65,24 @@ const connect = info => {
 
 const connectToInstance = (info) => {
 	return new Promise((resolve, reject) => {
-		const host = info.host;
-		const port = info.port;
-		const username = info.username;
-		const password = info.password;
-		const traversalSource = info.traversalSource || 'g';
-		const needSasl = username && password;
-		const sslOptions = getSSLConfig(info);
-		const protocol = _.isEmpty(sslOptions) ? 'ws' : 'wss';
-		const authenticator = needSasl ? new gremlin.driver.auth.PlainTextSaslAuthenticator(username, password) : undefined;
+		const traversalSource = 'g';
+		const databaseName = info.database || database;
+		const accountKeyString = info.accountKey || accountKey;
+		const gremlinEndpointString = info.gremlinEndpoint || gremlinEndpoint;
 		
-		client = new gremlin.driver.Client(`${protocol}://${host}:${port}/gremlin`, Object.assign({
+		persistConnectionInfo(info);
+
+		const authenticator = new gremlin.driver.auth.PlainTextSaslAuthenticator(
+			`/dbs/${databaseName}/colls/${info.collection}`,
+			accountKeyString
+		);
+		
+		client = new gremlin.driver.Client(gremlinEndpointString, {
 			authenticator,
-			traversalSource
-		}, sslOptions));
+			traversalSource,
+			rejectUnauthorized : true,
+        	mimeType : 'application/vnd.gremlin-v2.0+json',
+		});
 
 		client.open()
 			.then(res => {
@@ -86,6 +93,18 @@ const connectToInstance = (info) => {
 			});
 	});
 };
+
+const persistConnectionInfo = (info) => {
+	if (info.database) {
+		database = info.database;
+	}
+	if (info.accountKey) {
+		accountKey = info.accountKey;
+	}
+	if (info.gremlinEndpoint) {
+		gremlinEndpoint = info.gremlinEndpoint;
+	}
+}
 
 const testConnection = () => {
 	if (!client) {
@@ -107,13 +126,13 @@ const close = () => {
 };
 
 const getLabels = () => {
-	return client.submit(`${graphName}.V().label().dedup().toList()`).then(data => data.toArray());
+	return client.submit(`${graphName}.V().label().dedup()`).then(data => data.toArray());
 };
 
 const getRelationshipSchema = (labels, limit = 100) => {
 	return Promise.all(labels.map(label => {
 		return client.submit(`${graphName}.V().hasLabel('${label}').outE().limit(${limit}).as('edge').inV().as('end')
-			.select('edge', 'end').by(label).dedup().toList()`)
+			.select('edge', 'end').by(label).dedup()`)
 				.then(relationshipData => {
 					const relationship = _.first(relationshipData.toArray());
 					if (!relationship) {
@@ -121,8 +140,8 @@ const getRelationshipSchema = (labels, limit = 100) => {
 					}
 					return {
 						start: label,
-						relationship: relationship.get('edge'),
-						end: relationship.get('end')
+						relationship: relationship.edge,
+						end: relationship.end
 					}
 				})
 	}));
@@ -133,7 +152,7 @@ const getDatabaseName = () => {
 };
 
 const getItemProperties = propertiesMap => {
-	return Array.from(propertiesMap).reduce((obj, [key, rawValue]) => {
+	return Object.entries(propertiesMap).reduce((obj, [key, rawValue]) => {
 		if (!_.isString(key)) {
 			return obj;
 		}
@@ -159,7 +178,7 @@ const handleMap = map => {
 };
 
 const getNodes = (label, limit = 100) => {
-	return client.submit(`${graphName}.V().hasLabel('${label}').limit(${limit}).valueMap(true).toList()`).then(res => 
+	return client.submit(`${graphName}.V().hasLabel('${label}').limit(${limit}).valueMap(true)`).then(res => 
 		res.toArray().map(getItemProperties)
 	)
 };
@@ -168,20 +187,20 @@ const getRelationshipData = (start, relationship, end, limit = 100) => {
 	return client.submit(`${graphName}.E().hasLabel('${relationship}').where(and(
 			outV().label().is(eq('${start}')),
 			inV().label().is(eq('${end}')))
-		).limit(${limit}).valueMap(true).toList()`)
+		).limit(${limit}).valueMap(true)`)
 			.then(relationshipData => relationshipData.toArray().map(getItemProperties))
-			.then(documents => getSchema('E', documents, relationship, limit))
+			.then(documents => ({ documents }))
 };
 
 const getNodesCount = (label) => {
-	return client.submit(`${graphName}.V().hasLabel('${label}').count().next()`).then(res => res.first());
+	return client.submit(`${graphName}.V().hasLabel('${label}').count()`).then(res => res.first());
 };
 
 const getCountRelationshipsData = (start, relationship, end) => {
 	return client.submit(`${graphName}.E().hasLabel('${relationship}').where(and(
 		outV().label().is(eq('${start}')),
 		inV().label().is(eq('${end}')))
-	).count().next()`).then(data => data.toArray());
+	).count()`).then(data => data.toArray());
 };
 
 const getIndexes = () => {
@@ -574,14 +593,17 @@ const addMetaProperties = (schema, metaProperties) => {
 const handleChoices = _.flow([handleChoicesInProperties, handleChoicesInItems]);
 
 const submitGraphSONDataScript = query => {
-	return client.submit(`GraphSONMapper.build().version(GraphSONVersion.V3_0).create().createMapper().writeValueAsString(${query})`);
+	return Promise.resolve({
+		first: () => ({})
+	});
+	// return client.submit(`GraphSONMapper.build().version(GraphSONVersion.V3_0).create().createMapper().writeValueAsString(${query})`);
 }
 
-const getDataQuery = (element, label, limit) => `${graphName}.${element}().hasLabel('${label}').limit(${limit}).valueMap().toList()`;
+const getDataQuery = (element, label, limit) => `${graphName}.${element}().hasLabel('${label}').limit(${limit}).valueMap()`;
 
 const getMetaPropertiesDataQuery = (label, limit) => 
 	`${graphName}.V().hasLabel('${label}').limit(${limit}).properties().as('properties').
-		as('metaProperties').select('properties','metaProperties').by(label).by(valueMap()).dedup().toList()`;
+		as('metaProperties').select('properties','metaProperties').by(label).by(valueMap()).dedup()`;
 
 const getMetaPropertiesData = (element, label, limit) => {
 	if (element !== 'V') {
@@ -605,7 +627,7 @@ const getSchema = (gremlinElement, documents, label, limit = 100) => {
 		.then(schemaData => {
 			return getMetaPropertiesData(gremlinElement, label, limit)
 				.then(metaPropertiesData => {
-					return client.submit(`${graphName}.${gremlinElement}().hasLabel('${label}').limit(${limit}).properties().order().by(id).label().dedup().toList()`)
+					return client.submit(`${graphName}.${gremlinElement}().hasLabel('${label}').limit(${limit}).properties().order().by(id).label().dedup()`)
 						.then(templateData => ({
 							metaProperties: metaPropertiesData.first(),
 							documentsGraphSONSchema: schemaData.first(),

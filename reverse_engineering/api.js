@@ -2,13 +2,15 @@
 
 const async = require('async');
 const _ = require('lodash');
+const { CosmosClient } = require('@azure/cosmos');
 const gremlinHelper = require('./gremlinHelper');
+let client;
 
 module.exports = {
 	connect: function(connectionInfo, logger, cb){
 		logger.clear();
 		logger.log('info', connectionInfo, 'connectionInfo', connectionInfo.hiddenKeys);
-		gremlinHelper.connect(connectionInfo).then(cb, cb);
+		cb();
 	},
 
 	disconnect: function(connectionInfo, cb){
@@ -16,111 +18,138 @@ module.exports = {
 		cb();
 	},
 
-	testConnection: function(connectionInfo, logger, cb){
-		this.connect(connectionInfo, logger, error => {
-			if (error) {
-				cb({ message: 'Connection error', stack: error.stack });
-				return;
-			}
-
-			gremlinHelper.testConnection().then(() => {
-				this.disconnect(connectionInfo, () => {});
-				cb();
-			}).catch(error => {
-				this.disconnect(connectionInfo, () => {});
-				logger.log('error', prepareError(error));
-				cb({ message: 'Connection error', stack: error.stack });
-			})
-		});
+	testConnection: async function(connectionInfo, logger, cb) {
+		logger.clear();
+		client = setUpDocumentClient(connectionInfo);
+		try {
+			await getDatabasesData();
+			return cb();
+		} catch(err) {
+			logger.log('error', mapError(err));
+			return cb(mapError(err));
+		}
 	},
 
-	getDatabases: function(connectionInfo, logger, cb){
-		cb();
+	getDatabases: async function(connectionInfo, logger, cb){
+		client = setUpDocumentClient(connectionInfo);
+		logger.clear();
+		logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
+
+		try {
+			const dbsData = await getDatabasesData();
+			const dbs = dbsData.map(item => item.id);
+			logger.log('info', dbs, 'All databases list', connectionInfo.hiddenKeys);
+			return cb(null, dbs);
+		} catch(err) {
+			logger.log('error', err);
+			return cb(mapError(err));
+		}
 	},
 
 	getDocumentKinds: function(connectionInfo, logger, cb) {
-		cb();
+		cb(null, []);
 	},
 
-	getDbCollectionsNames: function(connectionInfo, logger, cb) {
-		let result = {
-			dbName: '',
-			dbCollections: ''
-		};
-		gremlinHelper.connect(connectionInfo).then(
-			() => gremlinHelper.getLabels(),
-			error => cb({ message: 'Connection error', stack: error.stack })
-		).then((labels) => {
-			result.dbCollections = labels;
-		}).then(() => {
-			return gremlinHelper.getDatabaseName();
-		}).then(dbName => {
-			result.dbName = dbName;
+	getDbCollectionsNames: async function(connectionInfo, logger, cb) {
+		try {
+			client = setUpDocumentClient(connectionInfo);
+			logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
 			
-			cb(null, [result]);
-		}).catch((error) => {
-			cb(error || 'error');
-		});
+			logger.log('info', { Database: connectionInfo.database }, 'Getting collections list for current database', connectionInfo.hiddenKeys);
+			const collections = await listCollections(connectionInfo.database);
+			
+			logger.log('info', { CollectionList: collections }, 'Collection list for current database', connectionInfo.hiddenKeys);
+			const result = await Promise.all(collections.map(async collection => {
+				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id });
+				const collectionLebels = await gremlinHelper.getLabels();
+				gremlinHelper.close();
+
+				return {
+					dbName: collection.id,
+					dbCollections: collectionLebels,
+				};
+			}));
+			
+			cb(null, result);
+		} catch(err) {
+			logger.log('error', err);
+			return cb(mapError(err));
+		}
 	},
 
-	getDbCollectionsData: function(data, logger, cb){
-		logger.clear();
-		logger.log('info', data, 'connectionInfo', data.hiddenKeys);
+	getDbCollectionsData: async function(data, logger, cb) {
+		try {
+			logger.clear();
+			logger.log('info', data, 'connectionInfo', data.hiddenKeys);
+	
+			const collections = data.collectionData.collections;
+			const collectionNames = data.collectionData.dataBaseNames;
+			const fieldInference = data.fieldInference;
+			const includeEmptyCollection = data.includeEmptyCollection;
+			const includeSystemCollection = data.includeSystemCollection;
+			const recordSamplingSettings = data.recordSamplingSettings;
+			let packages = {
+				labels: [],
+				relationships: []
+			};
+			const { resource: accountInfo } = await client.getDatabaseAccount();
+			const modelInfo = {
+				defaultConsistency: accountInfo.consistencyPolicy,
+				preferredLocation: accountInfo.writableLocations[0] ? accountInfo.writableLocations[0].name : '',
+			};
+	
+			const dbCollectionsPromise = collectionNames.map(async collectionName => {
+				const labels = collections[collectionName];
 
-		const collections = data.collectionData.collections;
-		const dataBaseNames = data.collectionData.dataBaseNames;
-		const fieldInference = data.fieldInference;
-		const includeEmptyCollection = data.includeEmptyCollection;
-		const includeSystemCollection = data.includeSystemCollection;
-		const recordSamplingSettings = data.recordSamplingSettings;
-		let packages = {
-			labels: [],
-			relationships: []
-		};
+				const containerInstance = client.database(data.database).container(collectionName);
+				const storedProcs = await getStoredProcedures(containerInstance);
+				const triggers = await getTriggers(containerInstance);
+				const udfs = await getUdfs(containerInstance);
+				const collection = await getCollectionById(containerInstance);
+				const offerInfo = await getOfferType(collection);
+				const { autopilot, throughput } = getOfferProps(offerInfo);
+				const partitionKey = getPartitionKey(collection);
+				const bucketInfo = {
+					dbId: data.database,
+					throughput,
+					autopilot,
+					partitionKey,
+					uniqueKey: getUniqueKeys(collection),
+					storedProcs,
+					triggers,
+					udfs,
+					TTL: getTTL(collection.defaultTtl),
+					TTLseconds: collection.defaultTtl
+				};
+				const indexes = getIndexes(collection.indexingPolicy);
 
-		async.map(dataBaseNames, (dbName, next) => {
-			let labels = collections[dbName];
-			let metaData = {};
-
-			gremlinHelper.getFeatures().then(features => {
-				metaData.features = features;
-			}).then(() => gremlinHelper.getVariables()
-			).then(variables => {
-				metaData.variables = variables;
-			}).then(() => gremlinHelper.getIndexes()
-			).then(indexes => {
-				logger.progress({ message: `Indexes have retrieved successfully`, containerName: dbName, entityName: '' });
-				metaData.indexes = indexes;
-				return metaData;
-			}).then(metaData => {
-				return getNodesData(dbName, labels, logger, {
+				await gremlinHelper.connect({ collection: collectionName });
+				const nodesData = await getNodesData(collectionName, labels, logger, {
 					recordSamplingSettings,
 					fieldInference,
 					includeEmptyCollection,
-					indexes: metaData.indexes,
-					features: metaData.features,
-					variables: metaData.variables
+					indexes,
+					bucketInfo
 				});
-			}).then((labelPackages) => {
-				packages.labels.push(labelPackages);
-				labels = labelPackages.reduce((result, packageData) => result.concat([packageData.collectionName]), []);
-				return gremlinHelper.getRelationshipSchema(labels);
-			}).then((schema) => {
-				return schema.filter(data => {
-					return (labels.indexOf(data.start) !== -1 && labels.indexOf(data.end) !== -1);
+				packages.labels.push(nodesData);
+				const labelNames = nodesData.reduce((result, packageData) => result.concat([packageData.collectionName]), []);
+				let relationships = await gremlinHelper.getRelationshipSchema(labelNames);
+				relationships = relationships.filter(data => {
+					return (labelNames.includes(data.start) && labelNames.includes(data.end));
 				});
-			}).then((schema) => {
-				return getRelationshipData(schema, dbName, recordSamplingSettings, fieldInference);
-			}).then((relationships) => {
-				packages.relationships.push(relationships);
-				next(null);
-			}).catch(error => {
-				logger.log('error', prepareError(error), "Error");
-				next(prepareError(error));
+				const relationshipData = await getRelationshipData(relationships, collectionName, recordSamplingSettings, fieldInference);
+				packages.relationships.push(relationshipData);
+				gremlinHelper.close();
 			});
-		}, (err) => {
-			cb(err, packages.labels, {}, [].concat.apply([], packages.relationships));
-		});
+			
+			await Promise.all(dbCollectionsPromise);
+	
+			cb(null, packages.labels, modelInfo, [].concat.apply([], packages.relationships));
+		} catch (err) {
+				gremlinHelper.close();
+				logger.log('error', mapError(err), "Error");
+				cb(mapError(err));
+		}
 	}
 };
 
@@ -164,20 +193,17 @@ const getNodesData = (dbName, labels, logger, data) => {
 					{ limit: count, documents }
 				));
 			})
-			.then(({ documents, limit }) => gremlinHelper.getSchema('V', documents, labelName, limit))
-			.then(({ documents, schema, template }) => {
+			.then(({ documents }) => {
 				logger.progress({ message: `Data has successfully got`, containerName: dbName, entityName: labelName });
 				const packageData = getLabelPackage({
 					dbName, 
 					labelName, 
 					documents,
-					schema,
-					template,
 					includeEmptyCollection: data.includeEmptyCollection, 
 					fieldInference: data.fieldInference,
-					indexes: data.indexes,
-					features: data.features,
-					variables: data.variables
+					indexes: [],
+					bucketIndexes: data.indexes,
+					bucketInfo: data.bucketInfo
 				});
 				if (packageData) {
 					packages.push(packageData);
@@ -245,27 +271,17 @@ const getRelationshipData = (schema, dbName, recordSamplingSettings, fieldInfere
 	});
 };
 
-const getLabelPackage = ({dbName, labelName, documents, template, schema, includeEmptyCollection, fieldInference, indexes, features, variables}) => {
+const getLabelPackage = ({dbName, labelName, documents, includeEmptyCollection, bucketInfo, bucketIndexes}) => {
 	let packageData = {
 		dbName,
 		collectionName: labelName,
 		documents,
 		views: [],
 		emptyBucket: false,
-		validation: {
-			jsonSchema: schema
-		},
-		bucketInfo: {
-			indexes,
-			features,
-			graphVariables: variables,
-			traversalSource: dbName
-		}
+		bucketInfo,
+		bucketIndexes
 	};
 
-	if (fieldInference.active === 'field') {
-		packageData.documentTemplate = getTemplate(documents, template);
-	}
 
 	if (includeEmptyCollection || !isEmptyLabel(documents)) {
 		return packageData;
@@ -274,9 +290,210 @@ const getLabelPackage = ({dbName, labelName, documents, template, schema, includ
 	}
 }; 
 
-const prepareError = (error) => {
+const mapError = (error) => {
 	return {
 		message: error.message,
 		stack: error.stack
 	};
 };
+
+const setUpDocumentClient = (connectionInfo) => {
+	const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
+	const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint)[1];
+	const endpoint = `https://${dbName}.documents.azure.com:443/`;
+	const key = connectionInfo.accountKey;
+
+	return new CosmosClient({ endpoint, key });
+}
+
+async function getCollectionById(containerInstance) {
+	const { resource: collection } = await containerInstance.read();
+	return collection;
+}
+
+async function getDatabasesData() {
+	const dbResponse = await client.databases.readAll().fetchAll();
+	return dbResponse.resources;
+
+}
+
+async function listCollections(databaseId) {
+	const { resources: containers } = await client.database(databaseId).containers.readAll().fetchAll();
+	return containers;
+}
+
+function getIndexes(indexingPolicy){
+	const rangeIndexes = getRangeIndexes(indexingPolicy);
+	const spatialIndexes = getSpatialIndexes(indexingPolicy);
+	const compositeIndexes = getCompositeIndexes(indexingPolicy);
+
+	return rangeIndexes.concat(spatialIndexes).concat(compositeIndexes);
+}
+
+async function getOfferType(collection) {
+	const querySpec = {
+		query: 'SELECT * FROM root r WHERE  r.resource = @link',
+		parameters: [
+			{
+				name: '@link',
+				value: collection._self
+			}
+		]
+	};
+	const { resources: offer } = await client.offers.query(querySpec).fetchAll();
+	return offer.length > 0 && offer[0];
+}
+
+function getRangeIndexes(indexingPolicy) {
+	let rangeIndexes = [];
+	const excludedPaths = indexingPolicy.excludedPaths.map(({ path }) => path).join(', ');
+	
+	if(indexingPolicy) {
+		indexingPolicy.includedPaths.forEach((item, i) => {
+			if (item.indexes) {
+				const indexes = item.indexes.map((index, j) => {
+					return {
+						name: `New Index(${j+1})`,
+						indexPrecision: index.precision,
+						automatic: indexingPolicy.automatic,
+						mode: indexingPolicy.indexingMode,
+						indexIncludedPath: item.path,
+						indexExcludedPath: excludedPaths,
+						dataType: index.dataType,
+						kind: index.kind
+					};
+				});
+				rangeIndexes = rangeIndexes.concat(rangeIndexes, indexes);
+			} else {
+				const index = {
+					name: `New Index(${i+1})`,
+					automatic: indexingPolicy.automatic,
+					mode: indexingPolicy.indexingMode,
+					indexIncludedPath: item.path,
+					indexExcludedPath: excludedPaths,
+					kind: 'Range'
+				}
+				rangeIndexes.push(index);
+			}
+		});
+	}
+	return rangeIndexes;
+}
+
+function getSpatialIndexes(indexingPolicy) {
+	if (!indexingPolicy.spatialIndexes) {
+		return [];
+	}
+	return indexingPolicy.spatialIndexes.map(item => {
+		return {
+			name: 'Spatial index',
+			automatic: indexingPolicy.automatic,
+			mode: indexingPolicy.indexingMode,
+			kind: 'Spatial',
+			indexIncludedPath: item.path,
+			dataTypes: item.types.map(type => ({ spatialType: type }))
+		};
+	});
+}
+
+function getCompositeIndexes(indexingPolicy) {
+	if (!indexingPolicy.compositeIndexes) {
+		return [];
+	}
+	return indexingPolicy.compositeIndexes.map(item => {
+		return {
+			name: 'Composite index',
+			automatic: indexingPolicy.automatic,
+			mode: indexingPolicy.indexingMode,
+			kind: 'Composite',
+			compositeFields: item.map(({ order, path }) => ({ compositeFieldPath: path, compositeFieldOrder: order }))
+		};
+	});
+}
+
+function getPartitionKey(collection) {
+	if (!collection.partitionKey) {
+		return '';
+	}
+	if (!Array.isArray(collection.partitionKey.paths)) {
+		return '';
+	}
+	
+	return collection.partitionKey.paths.join(',');
+}
+
+function getUniqueKeys(collection) {
+	if (!collection.uniqueKeyPolicy) {
+		return [];
+	}
+
+	if (!Array.isArray(collection.uniqueKeyPolicy.uniqueKeys)) {
+		return [];
+	}
+
+	return collection.uniqueKeyPolicy.uniqueKeys.map(item => {
+		if (!Array.isArray(item.paths)) {
+			return;
+		}
+
+		return {
+			attributePath: item.paths.join(',')
+		};
+	}).filter(Boolean);
+}
+
+function getOfferProps(offer) {
+	const isAutopilotOn = _.get(offer, 'content.offerAutopilotSettings');
+	if (isAutopilotOn) {
+		return {
+			autopilot: true,
+			throughput: offer.content.offerAutopilotSettings.maximumTierThroughput
+		};
+	}
+	return {
+		autopilot: false,
+		throughput: offer ? offer.content.offerThroughput : ''
+	};
+}
+
+async function getStoredProcedures(containerInstance) {
+	const { resources } = await containerInstance.scripts.storedProcedures.readAll().fetchAll();
+	return resources.map((item, i) => {
+		return {
+			storedProcID: item.id,
+			name: `New Stored procedure(${i+1})`,
+			storedProcFunction: item.body
+		};
+	});
+}
+
+async function getTriggers(containerInstance) {
+	const { resources } = await containerInstance.scripts.triggers.readAll().fetchAll();
+	return resources.map((item, i) => {
+		return {
+			triggerID: item.id,
+			name: `New Trigger(${i+1})`,
+			prePostTrigger: item.triggerType === 'Pre' ? 'Pre-Trigger' : 'Post-Trigger',
+			triggerOperation: item.triggerOperation,
+			triggerFunction: item.body
+		};
+	});
+}
+
+async function getUdfs(containerInstance) {
+	const { resources } = await containerInstance.scripts.userDefinedFunctions.readAll().fetchAll();
+	return resources.map((item, i) => {
+		return {
+			udfID: item.id,
+			name: `New UDFS(${i+1})`,
+			udfFunction: item.body
+		};
+	});
+}
+
+function getTTL(defaultTTL) {
+	if (!defaultTTL) {
+		return 'Off';
+	}
+	return defaultTTL === -1 ? 'On (no default)' : 'On';
+}

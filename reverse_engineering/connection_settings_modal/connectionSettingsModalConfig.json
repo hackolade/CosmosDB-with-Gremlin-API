@@ -6,49 +6,32 @@
 				"inputLabel": "Name",
 				"inputKeyword": "name",
 				"inputType": "text",
-				"inputPlaceholder": "Name"
+				"inputPlaceholder": "Name",
+				"validation": {
+					"regex": "([^\\s])"
+				}
 				
 			},
 			{
-				"inputLabel": "Host",
-				"inputKeyword": "host",
+				"inputLabel": "Gremlin endpoint",
+				"inputKeyword": "gremlinEndpoint",
 				"inputType": "text",
-				"inputPlaceholder": "localhost",
-				"defaultValue": ""
+				"inputPlaceholder": "wss://*.gremlin.cosmos.azure.com:443/",
+				"defaultValue": "",
+				"validation": {
+					"regex": "([^\\s])"
+				}
 			},
 			{
-				"inputLabel": "Port",
-				"inputKeyword": "port",
-				"inputType": "numeric",
-				"inputPlaceholder": 8182,
-				"defaultValue": 8182
-			},
-			{
-				"inputLabel": "Traversal Source",
-				"inputKeyword": "traversalSource",
+				"inputLabel": "Account key",
+				"inputKeyword": "accountKey",
 				"inputType": "text",
-				"inputPlaceholder": "g",
-				"defaultValue": "g"
-			}
-		]
-	},
-	{
-		"tab": "Authentication",
-		"structure": [
-			{
-				"inputLabel": "User Name",
-				"inputKeyword": "username",
-				"inputType": "text",
-				"inputPlaceholder": "User Name"
-				
-			},
-			{
-				"inputLabel": "Password",
-				"inputKeyword": "password",
-				"inputType": "password",
-				"inputTooltip": "Password",
+				"inputPlaceholder": "",
+				"defaultValue": "",
 				"isHiddenKey": true,
-				"defaultValue": ""
+				"validation": {
+					"regex": "([^\\s])"
+				}
 			}
 		]
 	},
