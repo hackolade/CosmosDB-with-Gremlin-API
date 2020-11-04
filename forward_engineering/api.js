@@ -292,6 +292,23 @@ const resolveChoices = (choices, properties) => {
 	}, properties || {});
 };
 
+const getListValues = (property, level, value) => {
+	let items = _.get(property, 'items', []);
+	if (!_.isArray(items)) {
+		items = [items];
+	}
+
+	const choices = getChoices(property);
+	items = resolveArrayChoices(choices, items);
+
+	return items.map((item, index) => {
+		const childValue = value[index];
+		const type = item.childType || item.type;
+
+		return convertPropertyValue(item, level + 1, type, childValue);
+	});
+};
+
 const addPropertiesScript = (collection, vertexData) => {
 	const properties = _.get(collection, 'properties', {});
 
@@ -312,10 +329,21 @@ const addPropertiesScript = (collection, vertexData) => {
 		if (type === 'multi-property') {
 			return script + `${handleMultiProperty(property, name, vertexData[name])}`;
 		}
+		if (type === 'list') {
+			const listValues = getListValues(property, 2, vertexData[name]);
+			return listValues.reduce((script, valueScript) => {
+				return script + getPropertyStatement(name, 'list', valueScript, metaPropertiesScript);
+			}, script);
+
+		}
 		const valueScript = convertPropertyValue(property, 2, type, vertexData[name]);
 
-		return script + `.\n${DEFAULT_INDENT}property(${property.propCardinality}, ${JSON.stringify(name)}, ${valueScript}${metaPropertiesScript})`;
+		return script + getPropertyStatement(name, property.propCardinality, valueScript, metaPropertiesScript);
 	}, '');
+};
+
+const getPropertyStatement = (name, propCardinality, valueScript, metaPropertiesScript) => {
+	return `.\n${DEFAULT_INDENT}property(${propCardinality}, ${JSON.stringify(name)}, ${valueScript}${metaPropertiesScript})`
 };
 
 const isGraphSONType = type => ['map', 'set', 'list', 'timestamp', 'date', 'uuid', 'number'].includes(type);
