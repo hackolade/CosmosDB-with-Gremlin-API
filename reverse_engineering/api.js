@@ -4,6 +4,7 @@ const async = require('async');
 const _ = require('lodash');
 const { CosmosClient } = require('@azure/cosmos');
 const axios = require('axios');
+const qs = require('qs');
 const gremlinHelper = require('./gremlinHelper');
 let client;
 
@@ -98,6 +99,9 @@ module.exports = {
 			const modelInfo = {
 				defaultConsistency: accountInfo.consistencyPolicy,
 				preferredLocation: accountInfo.writableLocations[0] ? accountInfo.writableLocations[0].name : '',
+				tenant: data.tenantId,
+				resGrp: data.resourceGroupName,
+				subscription: data.subscriptionId,
 				...additionalAccountInfo,
 			};
 	
