@@ -553,16 +553,16 @@ function getTTL(defaultTTL) {
 }
 
 async function getAdditionalAccountInfo(connectionInfo, logger) {
-	if (connectionInfo.disableSSL || !connectionInfo.includeAccountInformation) {
+	if (!connectionInfo.includeAccountInformation) {
 		return {};
 	}
 
 	logger.log('info', {}, 'Account additional info', connectionInfo.hiddenKeys);
 
 	try {
-		const { clientId, appSecret, tenantId, subscriptionId, resourceGroupName, host } = connectionInfo;
-		const accNameRegex = /wss:\/\/(.+)\.gremlinEndpoint.+/i;
-		const accountName = accNameRegex.test(host) ? accNameRegex.exec(host)[1] : '';
+		const { clientId, appSecret, tenantId, subscriptionId, resourceGroupName, gremlinEndpoint } = connectionInfo;
+		const accNameRegex = /wss:\/\/(.+)\.gremlin.+/i;
+		const accountName = accNameRegex.test(gremlinEndpoint) ? accNameRegex.exec(gremlinEndpoint)[1] : '';
 		const tokenBaseURl = `https://login.microsoftonline.com/${tenantId}/oauth2/token`;
 		const { data: tokenData } = await axios({
 			method: 'post',
