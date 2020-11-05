@@ -132,7 +132,8 @@ module.exports = {
 					fieldInference,
 					includeEmptyCollection,
 					indexes,
-					bucketInfo
+					bucketInfo,
+					partitionKey,
 				});
 				packages.labels.push(nodesData);
 				const labelNames = nodesData.reduce((result, packageData) => result.concat([packageData.collectionName]), []);
@@ -206,7 +207,8 @@ const getNodesData = (dbName, labels, logger, data) => {
 					fieldInference: data.fieldInference,
 					indexes: [],
 					bucketIndexes: data.indexes,
-					bucketInfo: data.bucketInfo
+					bucketInfo: data.bucketInfo,
+					partitionKey: data.partitionKey,
 				});
 				if (packageData) {
 					packages.push(packageData);
@@ -274,7 +276,7 @@ const getRelationshipData = (schema, dbName, recordSamplingSettings, fieldInfere
 	});
 };
 
-const getLabelPackage = ({dbName, labelName, documents, includeEmptyCollection, bucketInfo, bucketIndexes, fieldInference}) => {
+const getLabelPackage = ({dbName, labelName, documents, includeEmptyCollection, bucketInfo, bucketIndexes, fieldInference, partitionKey}) => {
 	let packageData = {
 		dbName,
 		collectionName: labelName,
@@ -282,7 +284,8 @@ const getLabelPackage = ({dbName, labelName, documents, includeEmptyCollection, 
 		views: [],
 		emptyBucket: false,
 		bucketInfo,
-		bucketIndexes
+		bucketIndexes,
+		validation: createSchemaByPartitionKeyPath(partitionKey, documents),
 	};
 	if (fieldInference.active === 'field') {
 		packageData.documentTemplate = documents.reduce((tpl, doc) => _.merge(tpl, doc), {});
@@ -301,6 +304,52 @@ const mapError = (error) => {
 		stack: error.stack
 	};
 };
+
+function createSchemaByPartitionKeyPath(path, documents = []) {
+	const checkIfDocumentContaintPath = (path, document = {}) => {
+		if (_.isEmpty(path)) {
+			return true;
+		}
+		const value = _.get(document, `${path[0]}`);
+		if (value) {
+			return checkIfDocumentContaintPath(_.tail(path), value);
+		}
+		return false;
+	}
+
+	const getNestedObject = (path) => {
+		if (path.length === 1) {
+			return {
+				[path[0]]: {
+					primaryKey: true,
+					partitionKey: true,
+				}
+			}
+		}
+		return {
+			[path[0]]: {
+				properties: getNestedObject(_.tail(path))
+			}
+		};
+	}
+
+	if (!path || typeof path !== 'string') {
+		return false;
+	}
+	const namePath = _.tail(path.split('/'));
+	if (namePath.length === 0) {
+		return false;
+	}
+	if (!documents.some(doc => checkIfDocumentContaintPath(namePath, doc))) {
+		return false;
+	} 
+
+	return {
+		jsonSchema: {
+			properties: getNestedObject(namePath)
+		}
+	};
+}
 
 const setUpDocumentClient = (connectionInfo) => {
 	const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
