@@ -7,6 +7,7 @@
 				"inputKeyword": "name",
 				"inputType": "text",
 				"inputPlaceholder": "Name",
+				"inputTooltip": "Choose a friendly connection name",
 				"validation": {
 					"regex": "([^\\s])"
 				}
@@ -17,6 +18,7 @@
 				"inputKeyword": "gremlinEndpoint",
 				"inputType": "text",
 				"inputPlaceholder": "wss://*.gremlin.cosmos.azure.com:443/",
+				"inputTooltip": "Paste Gremlin endpoint",
 				"defaultValue": "",
 				"validation": {
 					"regex": "([^\\s])"
@@ -25,9 +27,10 @@
 			{
 				"inputLabel": "Account key",
 				"inputKeyword": "accountKey",
-				"inputType": "text",
+				"inputType": "password",
 				"inputPlaceholder": "",
 				"defaultValue": "",
+				"inputTooltip": "Paste the account Primary or Secondary (Read-Only) Key",
 				"isHiddenKey": true,
 				"validation": {
 					"regex": "([^\\s])"
@@ -36,154 +39,63 @@
 		]
 	},
 	{
-		"tab": "SSL",
+		"tab": "Control Plane parameters",
 		"structure": [
 			{
-				"inputLabel": "SSL",
-				"inputKeyword": "sslType",
-				"inputType": "select",
-				"options": [{
-					"value": "Off", 
-					"label": "Off"
-				}, {
-					"value": "TRUST_ALL_CERTIFICATES",
-					"label": "Unvalidated"
-				},{
-					"value": "TRUST_CUSTOM_CA_SIGNED_CERTIFICATES",
-					"label": "Server validation"
-
-				},{
-					"value": "TRUST_SERVER_CLIENT_CERTIFICATES",
-					"label": "Server and client validation"
-				},{
-					"value": "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES", 
-					"label": "SYSTEMCA"
-				}]
-			},
-			{
-				"inputLabel": "Certificate Authority",
-				"inputKeyword": "certAuthority",
-				"inputType": "file",
-				"inputPlaceholder": "Certificate Authority",
-				"extensions": ["pem", "crt", "key"],
-				"dependency": {
-					"key": "sslType",
-					"value": ["TRUST_CUSTOM_CA_SIGNED_CERTIFICATES", "TRUST_SERVER_CLIENT_CERTIFICATES"]
-				}
-			},
-			{
-				"inputLabel": "PFX",
-				"inputKeyword": "pfx",
-				"inputType": "file",
-				"inputPlaceholder": "PFX or PKCS12 encoded private key and certificate chain",
-				"extensions": ["pfx"],
-				"dependency": {
-					"key": "sslType",
-					"value": "TRUST_SERVER_CLIENT_CERTIFICATES"
-				}
-			}
-		]
-	},
-	{
-		"tab": "SSH",
-		"structure": [
-			{
-				"inputLabel": "Use SSH Tunnel",
-				"inputKeyword": "ssh",
+				"inputLabel": "Enable REST API connection",
+				"inputKeyword": "includeAccountInformation",
 				"inputType": "checkbox",
-				"defaultValue": false
+				"inputTooltip": "Check this box if you want to include Cosmos DB account information"
 			},
 			{
-				"inputLabel": "SSH Address",
-				"inputKeyword": "ssh_host",
+				"inputLabel": "Resource group name",
+				"inputKeyword": "resourceGroupName",
 				"inputType": "text",
-				"inputPlaceholder": "SSH Address",
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
-			},
-			{
-				"inputLabel": "Port",
-				"inputKeyword": "ssh_port",
-				"inputType": "numeric",
-				"inputPlaceholder": "Port",
-				"defaultValue": 22,
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
-			},
-			{
-				"inputLabel": "SSH User Name",
-				"inputKeyword": "ssh_user",
-				"inputType": "text",
-				"inputPlaceholder": "SSH User Name",
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
-			},
-			{
-				"inputLabel": "SSH Auth Method",
-				"inputKeyword": "ssh_method",
-				"inputType": "select",
-				"options": [{
-					"value": "privateKey", 
-					"label": "Private Key"
-				}, {
-					"value": "password",
-					"label": "Password"
-				}],
-				"disable": {
-					"key": "ssh",
-					"value": false
-				},
-				"defaultValue": "privateKey"
-			},
-			{
-				"inputLabel": "Private Key",
-				"inputKeyword": "ssh_key_file",
-				"inputType": "file",
-				"inputPlaceholder": "Private Key",
-				"extensions": ["*"],
+				"inputTooltip": "Specify the Resource group name from the Overview screen of the Cosmos DB instance",
 				"dependency": {
-					"key": "ssh_method",
-					"value": ["privateKey", ""]
-				},
-				"disable": {
-					"key": "ssh",
-					"value": false
+					"key": "includeAccountInformation",
+					"value": [true, "true"]
 				}
 			},
 			{
-				"inputLabel": "Passphrase",
-				"inputKeyword": "ssh_key_passphrase",
+				"inputLabel": "Subscription ID",
+				"inputKeyword": "subscriptionId",
+				"inputType": "text",
+				"inputTooltip": "Specify the Subscription ID from the Overview screen of the Cosmos DB instance",
+				"dependency": {
+					"key": "includeAccountInformation",
+					"value": [true, "true"]
+				}
+			},
+			{
+				"inputLabel": "Application (client) ID",
+				"inputKeyword": "clientId",
+				"inputType": "text",
+				"inputTooltip": "Azure Active Directory application id from the Overview screen of the App registration",
+				"dependency": {
+					"key": "includeAccountInformation",
+					"value": [true, "true"]
+				}
+			},
+			{
+				"inputLabel": "Directory (tenant) ID",
+				"inputKeyword": "tenantId",
+				"inputType": "text",
+				"inputTooltip": "Specify the Directory (tenant) ID from the Overview screen of the App registration",
+				"dependency": {
+					"key": "includeAccountInformation",
+					"value": [true, "true"]
+				}
+			},
+			{
+				"inputLabel": "Application secret",
+				"inputKeyword": "appSecret",
 				"inputType": "password",
-				"inputPlaceholder": "Passphrase",
+				"inputTooltip": "Specify the Application secret string",
 				"isHiddenKey": true,
 				"dependency": {
-					"key": "ssh_method",
-					"value": ["privateKey", ""]
-				},
-				"disable": {
-					"key": "ssh",
-					"value": false
-				}
-			},
-			{
-				"inputLabel": "Client key password",
-				"inputKeyword": "ssh_password",
-				"inputType": "password",
-				"inputPlaceholder": "Password",
-				"isHiddenKey": true,
-				"dependency": {
-					"key": "ssh_method",
-					"value": ["password", ""]
-				},
-				"disable": {
-					"key": "ssh",
-					"value": false
+					"key": "includeAccountInformation",
+					"value": [true, "true"]
 				}
 			}
 		]

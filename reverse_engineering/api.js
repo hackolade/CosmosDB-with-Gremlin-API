@@ -3,6 +3,7 @@
 const async = require('async');
 const _ = require('lodash');
 const { CosmosClient } = require('@azure/cosmos');
+const axios = require('axios');
 const gremlinHelper = require('./gremlinHelper');
 let client;
 
@@ -93,9 +94,11 @@ module.exports = {
 				relationships: []
 			};
 			const { resource: accountInfo } = await client.getDatabaseAccount();
+			const additionalAccountInfo = await getAdditionalAccountInfo(data, logger);
 			const modelInfo = {
 				defaultConsistency: accountInfo.consistencyPolicy,
 				preferredLocation: accountInfo.writableLocations[0] ? accountInfo.writableLocations[0].name : '',
+				...additionalAccountInfo,
 			};
 	
 			const dbCollectionsPromise = collectionNames.map(async collectionName => {
@@ -496,4 +499,69 @@ function getTTL(defaultTTL) {
 		return 'Off';
 	}
 	return defaultTTL === -1 ? 'On (no default)' : 'On';
+}
+
+async function getAdditionalAccountInfo(connectionInfo, logger) {
+	if (connectionInfo.disableSSL || !connectionInfo.includeAccountInformation) {
+		return {};
+	}
+
+	logger.log('info', {}, 'Account additional info', connectionInfo.hiddenKeys);
+
+	try {
+		const { clientId, appSecret, tenantId, subscriptionId, resourceGroupName, host } = connectionInfo;
+		const accNameRegex = /wss:\/\/(.+)\.gremlinEndpoint.+/i;
+		const accountName = accNameRegex.test(host) ? accNameRegex.exec(host)[1] : '';
+		const tokenBaseURl = `https://login.microsoftonline.com/${tenantId}/oauth2/token`;
+		const { data: tokenData } = await axios({
+			method: 'post',
+			url: tokenBaseURl,
+			data: qs.stringify({
+				grant_type: 'client_credentials',
+				client_id: clientId,
+				client_secret: appSecret,
+				resource: 'https://management.azure.com/'
+			}),
+			headers: {
+				'Content-Type': 'application/x-www-form-urlencoded'
+			}
+		});
+		const dbAccountBaseUrl = `https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/${accountName}?api-version=2015-04-08`;
+		const { data: accountData } = await axios({
+			method: 'get',
+			url: dbAccountBaseUrl,
+			headers: {
+				'Authorization': `${tokenData.token_type} ${tokenData.access_token}`
+			}
+		});
+		logger.progress({
+			message: 'Getting account information',
+			containerName: connectionInfo.database,
+			entityName: ''
+		});
+		return {
+			enableMultipleWriteLocations: accountData.properties.enableMultipleWriteLocations,
+			enableAutomaticFailover: accountData.properties.enableAutomaticFailover,
+			isVirtualNetworkFilterEnabled: accountData.properties.isVirtualNetworkFilterEnabled,
+			virtualNetworkRules: accountData.properties.virtualNetworkRules.map(({ id, ignoreMissingVNetServiceEndpoint }) => ({
+				virtualNetworkId: id,
+				ignoreMissingVNetServiceEndpoint
+			})),
+			ipRangeFilter: accountData.properties.ipRangeFilter,
+			tags: Object.entries(accountData.tags).map(([tagName, tagValue]) => ({ tagName, tagValue })),
+			locations: accountData.properties.locations.map(({ id, locationName, failoverPriority, isZoneRedundant }) => ({
+				locationId: id,
+				locationName,
+				failoverPriority,
+				isZoneRedundant
+			}))
+		};
+	} catch(err) {
+		logger.log('error', { message: _.get(err, 'response.data.error.message', err.message), stack: err.stack });
+		logger.progress({
+			message: 'Error while getting account information',
+			containerName: connectionInfo.database
+		});
+		return {};
+	}
 }

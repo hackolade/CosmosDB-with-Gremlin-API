@@ -6,6 +6,7 @@
   "dependencies": {
     "@azure/cosmos": "^3.9.2",
     "async": "^2.6.0",
+    "axios": "^0.21.0",
     "gremlin": "^3.4.3",
     "lodash": "^4.17.15",
     "tunnel-ssh": "^4.1.4"
