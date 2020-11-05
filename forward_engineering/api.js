@@ -97,7 +97,7 @@ const generateEdge = (from, to, relationship, edgeData) => {
 	return `${from}.addE(${JSON.stringify(edgeName)}).\n${DEFAULT_INDENT}to(${to})${propertiesScript}`;
 };
 
-const getVertexVariableScript = vertexName => `${graphName}.V().hasLabel(${JSON.stringify(vertexName)}).next()`;
+const getVertexVariableScript = vertexName => `${graphName}.V().hasLabel(${JSON.stringify(vertexName)})`;
 
 const generateEdges = (collections, relationships, jsonData) => {
 	const edges = relationships.reduce((edges, relationship) => {
