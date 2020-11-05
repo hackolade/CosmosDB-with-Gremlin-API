@@ -20,6 +20,14 @@
 		"collectionUsers": [],
 		"collation": {}
 	},
+	"nestedCollection": {
+		"collectionName": "New sub-vertex",
+		"collectionUsers": [],
+		"parentCollections":[],
+		"entityType": "sub-node",
+		"collation": {},
+		"relationName":"Subclass of"
+	},
 	"field": {
 		"name": "New property",
 		"propCardinality": {

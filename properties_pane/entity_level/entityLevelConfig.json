@@ -119,6 +119,60 @@ making sure that you maintain a proper JSON format.
 		"lowerTab": "Details",
 		"structure": [
 			{
+				"propertyName": "Node key",
+				"propertyKeyword": "collectionName",
+				"dependency": {
+					"type": "not",
+					"values": {
+						"key": "entityType",
+						"value": "sub-node"
+					}
+				}
+			},
+			{
+				"propertyName": "Sub-node key",
+				"propertyKeyword": "collectionName",
+				"propertyType": "coupled",
+				"coupledBy": "namingConvention",
+				"onCoupleAction": "onCoupleCollectionBusinessName",
+    			"shouldValidate": true,
+				"dependency": {
+					"key": "entityType",
+					"value": "sub-node"
+				}
+			},
+			{
+				"propertyName": "Edge label",
+				"propertyKeyword": "relationName",
+				"propertyType": "text",
+				"shouldValidate": false,
+				"dependency": {
+					"key": "entityType",
+					"value": "sub-node"
+				},
+			    "valueType": "string",
+  				"propertyTooltip": "edge"
+			},
+			{
+				"propertyKeyword": "parentCollection",
+				"propertyType": "selecthashed",
+				"canBeUnlinked": false,
+				"disabledOnCondition":{
+					"type": "not",
+					"values": {
+						"key": "entityType",
+						"value": "sub-node"
+					}
+				}
+			},
+			{
+				"propertyKeyword": "childCollection",
+				"disabledOnCondition":{}
+			},
+			{
+				"propertyKeyword": "additionalProperties"
+			},
+			{
 				"propertyName": "Comments",
 				"propertyKeyword": "comments",
 				"shouldValidate": false,
@@ -126,6 +180,22 @@ making sure that you maintain a proper JSON format.
 				"propertyType": "details",
 				"template": "textarea",
 				"valueType": "string"
+			},
+			{
+				"propertyKeyword":"entityType",
+				"hidden": true
+			},
+			{
+				"propertyKeyword":"parentCollections",
+				"propertyName":"Parent collections",
+				"valueType":"array",
+				"options": [],
+				"propertyType": "multiselect",
+				"dependency": {
+					"key": "entityType",
+					"value": "sub-node"
+				},
+				"hidden": true
 			}
 		]
 	}
