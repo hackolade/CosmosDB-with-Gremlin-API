@@ -274,7 +274,7 @@ const getRelationshipData = (schema, dbName, recordSamplingSettings, fieldInfere
 	});
 };
 
-const getLabelPackage = ({dbName, labelName, documents, includeEmptyCollection, bucketInfo, bucketIndexes}) => {
+const getLabelPackage = ({dbName, labelName, documents, includeEmptyCollection, bucketInfo, bucketIndexes, fieldInference}) => {
 	let packageData = {
 		dbName,
 		collectionName: labelName,
@@ -284,7 +284,9 @@ const getLabelPackage = ({dbName, labelName, documents, includeEmptyCollection, 
 		bucketInfo,
 		bucketIndexes
 	};
-
+	if (fieldInference.active === 'field') {
+		packageData.documentTemplate = documents.reduce((tpl, doc) => _.merge(tpl, doc), {});
+	}
 
 	if (includeEmptyCollection || !isEmptyLabel(documents)) {
 		return packageData;
