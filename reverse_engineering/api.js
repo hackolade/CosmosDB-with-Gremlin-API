@@ -56,21 +56,24 @@ module.exports = {
 		try {
 			client = setUpDocumentClient(connectionInfo);
 			logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
-			
 			logger.log('info', { Database: connectionInfo.database }, 'Getting collections list for current database', connectionInfo.hiddenKeys);
 			const collections = await listCollections(connectionInfo.database);
 			
 			logger.log('info', { CollectionList: collections }, 'Collection list for current database', connectionInfo.hiddenKeys);
-			const result = await Promise.all(collections.map(async collection => {
+			const result = await collections.reduce(async(acc, collection) => {
+				const res = await acc;
 				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id });
 				const collectionLebels = await gremlinHelper.getLabels();
 				gremlinHelper.close();
 
-				return {
-					dbName: collection.id,
-					dbCollections: collectionLebels,
-				};
-			}));
+				return [
+					...res,
+					{
+						dbName: collection.id,
+						dbCollections: collectionLebels,
+					}
+				];
+			}, []);
 			
 			cb(null, result);
 		} catch(err) {
@@ -90,10 +93,6 @@ module.exports = {
 			const includeEmptyCollection = data.includeEmptyCollection;
 			const includeSystemCollection = data.includeSystemCollection;
 			const recordSamplingSettings = data.recordSamplingSettings;
-			let packages = {
-				labels: [],
-				relationships: []
-			};
 			const { resource: accountInfo } = await client.getDatabaseAccount();
 			const additionalAccountInfo = await getAdditionalAccountInfo(data, logger);
 			const modelInfo = {
@@ -105,7 +104,8 @@ module.exports = {
 				...additionalAccountInfo,
 			};
 	
-			const dbCollectionsPromise = collectionNames.map(async collectionName => {
+			const packages = await collectionNames.reduce(async (acc, collectionName) => {
+				const packages = await acc;
 				const labels = collections[collectionName];
 
 				const containerInstance = client.database(data.database).container(collectionName);
@@ -148,10 +148,13 @@ module.exports = {
 				const relationshipData = await getRelationshipData(relationships, collectionName, recordSamplingSettings, fieldInference);
 				packages.relationships.push(relationshipData);
 				gremlinHelper.close();
+
+				return packages;
+			}, {
+				labels: [],
+				relationships: []
 			});
 			
-			await Promise.all(dbCollectionsPromise);
-	
 			cb(null, packages.labels, modelInfo, [].concat.apply([], packages.relationships));
 		} catch (err) {
 				gremlinHelper.close();
