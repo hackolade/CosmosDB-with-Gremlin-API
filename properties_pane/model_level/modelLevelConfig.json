@@ -282,26 +282,6 @@ making sure that you maintain a proper JSON format.
 				"valueType": "number",
 				"allowNegative": false
 			},
-/*			{
-				"propertyName": "Use Analytical Store",
-				"propertyKeyword": "useAnalyticalStore",
-				"propertyTooltip": "Enable analytical store capability",
-				"propertyType": "checkbox"
-			},
-			{
-				"propertyName": "Total analytical data stored",
-				"propertyKeyword": "analyticalDataStored",
-				"propertyTooltip": "In GB, storage needed for analytical workload",
-				"propertyValidate": true,
-				"propertyType": "numeric",
-				"valueType": "number",
-				"allowNegative": false,
-				"dependency": {
-					"key": "useAnalyticalStore",
-					"value": true
-				}
-			},
-*/
 			{
 				"propertyName": "Avg item size",
 				"propertyKeyword": "itemSize",

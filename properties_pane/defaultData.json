@@ -5,7 +5,6 @@
 		"dbVendor": "CosmosDB",
 		"apiExperience": "Gremlin API",
 		"transactionalDataStored": 10,
-		"analyticalDataStored": 10,
 		"itemSize": 1,
 		"readsPerSecPerRegion": 100,
 		"writesPerSecPerRegion": 100
@@ -13,7 +12,8 @@
 	"container": {
 		"name": "New graph",
 		"traversalSource": "g",
-		"indexes": []
+		"indexes": [],
+		"autopilot": false
 	},
 	"collection": {
 		"collectionName": "New vertex",
