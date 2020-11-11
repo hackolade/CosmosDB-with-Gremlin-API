@@ -3,6 +3,7 @@
 	"filterName": "Gremlin script",
 	"namePrefix": "Gremlin",
 	"hasUpdateScript": false,
+	"applyScriptToInstance": true,
 	"level": {
 		"container": true,
 		"entity": false

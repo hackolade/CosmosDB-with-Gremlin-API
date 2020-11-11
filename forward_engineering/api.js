@@ -1,4 +1,5 @@
 const _ = require('lodash');
+const applyToInstanceHelper = require('./applyToInstanceHelper');
 
 const DEFAULT_INDENT = '    ';
 let graphName = 'g';
@@ -44,6 +45,83 @@ module.exports = {
 				cb({ message: e.message, stack: e.stack });
 			}, 150);
 			return;
+		}
+	},
+
+	async applyToInstance(data, logger, cb, app) {
+		try {
+			logger.clear();
+			logger.log('info', data, data.hiddenKeys);
+
+			if (!data.script) {
+				return cb({ message: 'Empty script' });
+			}
+
+			if (!data.containerData) {
+				return cb({ message: 'Graph wasn\'t specified' });
+			}
+			const containerProps = _.get(data.containerData, '[0]', {});
+			if (!containerProps.dbId) {
+				return cb({ message: 'Database id wasn\'t specified' });
+			}
+			const graphName = containerProps.code || containerProps.name;
+			if (!graphName) {
+				return cb({ message: 'Graph name wasn\'t specified' });
+			}
+
+			const cosmosClient = applyToInstanceHelper.setUpDocumentClient(data);
+			await cosmosClient.databases.createIfNotExists({
+				id: containerProps.dbId
+			});
+			const containerResponse = await cosmosClient
+				.database(containerProps.dbId)
+				.containers.createIfNotExists({
+					id: graphName,
+					partitionKey: containerProps.partitionKey,
+					...(containerProps.autopilot
+						? { maxThroughput: containerProps.throughput || 400 }
+						: { throughput: containerProps.throughput || 400 }),
+					defaultTtl: applyToInstanceHelper.getTTL(containerProps),
+				});
+			if (containerResponse.statusCode === 201) {
+				const containerInstance = cosmosClient.database(containerProps.dbId).container(graphName);
+
+				const storedProcs = _.get(data.containerData, '[2].storedProcs', []);
+				if (storedProcs.length) {
+					await applyToInstanceHelper.createStoredProcs(storedProcs, containerInstance);
+				}
+
+				const udfs = _.get(data.containerData, '[3].udfs', []);
+				if (udfs.length) {
+					await applyToInstanceHelper.createUDFs(udfs, containerInstance);
+				}
+				const triggers = _.get(data.containerData, '[4].triggers', []);
+				if (triggers.length) {
+					await applyToInstanceHelper.createTriggers(triggers, containerInstance);
+				}
+			}
+
+			const { labels, edges } = applyToInstanceHelper.parseScriptStatements(data.script);
+			const gremlinClient = await applyToInstanceHelper.getGremlinClient(data, containerProps.dbId, graphName);
+			await applyToInstanceHelper.runGremlinQueries(gremlinClient, labels);
+			await applyToInstanceHelper.runGremlinQueries(gremlinClient, edges);
+
+			cb();
+		} catch(err) {
+			cb(mapError(err));
+		}
+	},
+
+	async testConnection(connectionInfo, logger, cb, app) {
+		logger.clear();
+		logger.log('info', connectionInfo, 'Test connection', connectionInfo.hiddenKeys);
+		try {
+			const client = applyToInstanceHelper.setUpDocumentClient(connectionInfo);
+			await applyToInstanceHelper.testConnection(client);
+			return cb();
+		} catch(err) {
+			logger.log('error', mapError(err), 'Connection failed');
+			return cb(mapError(err));
 		}
 	}
 };
@@ -478,4 +556,11 @@ const generateIndexes = indexesData => {
 	}
 
 	return script + ';';
+};
+
+const mapError = (error) => {
+	return {
+		message: error.message,
+		stack: error.stack
+	};
 };
