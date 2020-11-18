@@ -147,7 +147,7 @@ const generateVariables = variables => {
 };
 
 const generateVertex = (collection, vertexData) => {
-	const vertexName = collection.collectionName;
+	const vertexName = transformToValidGremlinName(collection.collectionName);
 	const propertiesScript = addPropertiesScript(collection, vertexData);
 
 	return `${graphName}.addV(${JSON.stringify(vertexName)})${propertiesScript}`;
@@ -169,7 +169,7 @@ const generateVertices = (collections, jsonData) => {
 }
 
 const generateEdge = (from, to, relationship, edgeData) => {
-	const edgeName = relationship.name;
+	const edgeName = transformToValidGremlinName(relationship.name);
 	const propertiesScript = addPropertiesScript(relationship, edgeData);
 
 	return `${from}.addE(${JSON.stringify(edgeName)}).\n${DEFAULT_INDENT}to(${to})${propertiesScript}`;
@@ -535,7 +535,7 @@ const transformToValidGremlinName = name => {
 		return DEFAULT_NAME;
 	}
 
-	const nameWithoutSpecialCharacters = name.replace(/[\s`~!@#%^&*()_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, '_');
+	const nameWithoutSpecialCharacters = name.replace(/[\f\t\n\v\r`~!@#%^&*_|+\-=?;:'",.<>\{\}\[\]\\\/]/gi, '_');
 	const startsFromDigit = nameWithoutSpecialCharacters.match(/^[0-9].*$/);
 
 	if (startsFromDigit) {
