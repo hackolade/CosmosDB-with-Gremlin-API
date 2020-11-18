@@ -528,8 +528,8 @@ const convertPropertyValue = (property, level, type, value) => {
 };
 
 const transformToValidGremlinName = name => {
-	const DEFAULT_NAME = 'New_vertex';
-	const DEFAULT_PREFIX = 'v_';
+	const DEFAULT_NAME = 'New vertex';
+	const DEFAULT_PREFIX = 'v';
 
 	if (!name || !_.isString(name)) {
 		return DEFAULT_NAME;
