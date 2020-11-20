@@ -139,12 +139,13 @@ module.exports = {
 					bucketInfo,
 					partitionKey,
 				});
+				let relationships =[];
 				packages.labels.push(nodesData);
 				const labelNames = nodesData.reduce((result, packageData) => result.concat([packageData.collectionName]), []);
-				let relationships = await gremlinHelper.getRelationshipSchema(labelNames);
-				relationships = relationships.filter(data => {
-					return (labelNames.includes(data.start) && labelNames.includes(data.end));
-				});
+				const labelsRelationships = await gremlinHelper.getRelationshipSchema(labelNames);
+				labelsRelationships.forEach(labelRelationships => labelRelationships
+					.filter(relationship => labelNames.includes(relationship.start) && labelNames.includes(relationship.end))
+					.forEach(relationship => relationships.push(relationship)));
 				const relationshipData = await getRelationshipData(relationships, collectionName, recordSamplingSettings, fieldInference);
 				packages.relationships.push(relationshipData);
 				gremlinHelper.close();

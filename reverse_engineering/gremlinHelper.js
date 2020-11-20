@@ -134,15 +134,15 @@ const getRelationshipSchema = (labels, limit = 100) => {
 		return client.submit(`${graphName}.V().hasLabel('${label}').outE().limit(${limit}).as('edge').inV().as('end')
 			.select('edge', 'end').by(label).dedup()`)
 				.then(relationshipData => {
-					const relationship = _.first(relationshipData.toArray());
-					if (!relationship) {
-						return {};
+					const relationships = relationshipData.toArray();
+					if (!relationships) {
+						return [];
 					}
-					return {
-						start: label,
+					return relationships.map(relationship =>({
+							start: label,
 						relationship: relationship.edge,
 						end: relationship.end
-					}
+					}))
 				})
 	}));
 };
