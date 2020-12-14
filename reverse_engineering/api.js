@@ -21,9 +21,10 @@ module.exports = {
 	},
 
 	testConnection: async function(connectionInfo, logger, cb) {
-		logger.clear();
-		client = setUpDocumentClient(connectionInfo);
 		try {
+			logger.clear();
+			client = setUpDocumentClient(connectionInfo);
+
 			await getDatabasesData();
 			return cb();
 		} catch(err) {
@@ -33,11 +34,11 @@ module.exports = {
 	},
 
 	getDatabases: async function(connectionInfo, logger, cb){
-		client = setUpDocumentClient(connectionInfo);
-		logger.clear();
-		logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
-
 		try {
+			client = setUpDocumentClient(connectionInfo);
+			logger.clear();
+			logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
+
 			const dbsData = await getDatabasesData();
 			const dbs = dbsData.map(item => item.id);
 			logger.log('info', dbs, 'All databases list', connectionInfo.hiddenKeys);
