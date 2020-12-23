@@ -362,8 +362,11 @@ function createSchemaByPartitionKeyPath(path, documents = []) {
 
 const setUpDocumentClient = (connectionInfo) => {
 	const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
-	const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint)[1];
-	const endpoint = `https://${dbName}.documents.azure.com:443/`;
+	const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint);
+	if(!dbName || !dbName[1]) {
+		throw new Error('Incorrect endpoint provided. Expected format: wss://<account name>.gremlin.cosmos.');
+	}
+	const endpoint = `https://${dbName[1]}.documents.azure.com:443/`;
 	const key = connectionInfo.accountKey;
 
 	return new CosmosClient({ endpoint, key });
