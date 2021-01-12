@@ -7,5 +7,13 @@
 	"level": {
 		"container": true,
 		"entity": false
-	}
+	},
+	"options": [
+		{ "name": "Gremlin Script", "keyword": "gremlin", "fileExtensions": [ {
+			"label": "plain/text", "value": "gremlin"
+		} ] },
+		{ "name": "Cosmos DB Script", "keyword": "cosmosdb", "fileExtensions": [ {
+			"label": "application/json", "value": "json"
+		} ] }
+	]
 }
