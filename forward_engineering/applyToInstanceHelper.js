@@ -1,5 +1,5 @@
 const _ = require('lodash');
-const { CosmosClient } = require('../reverse_engineering/node_modules/@azure/cosmos');
+const { CosmosClient, StoredProcedure, UserDefinedFunction, Trigger } = require('../reverse_engineering/node_modules/@azure/cosmos');
 const gremlin = require('../reverse_engineering/node_modules/gremlin');
 
 
@@ -69,12 +69,6 @@ const applyToInstanceHelper = {
 		});
 	},
 
-	createStoredProcs(storedProcs, containerInstance) {
-		return Promise.all(this.mapStoredProcs(storedProcs).map(proc => {
-			return containerInstance.scripts.storedProcedures.create(proc);
-		}));
-	},
-
 	mapUDFs(udfs) {
 		return udfs.map(udf => {
 			return {
@@ -82,12 +76,6 @@ const applyToInstanceHelper = {
 				body: udf.udfFunction,
 			};
 		});
-	},
-
-	createUDFs(udfs, containerInstance) {
-		return Promise.all(this.mapUDFs(udfs).map(udf => {
-			return containerInstance.scripts.userDefinedFunctions.create(udf);
-		}));
 	},
 
 	mapTriggers(triggers) {
@@ -101,10 +89,55 @@ const applyToInstanceHelper = {
 		});
 	},
 
+	createStoredProcs(storedProcs, containerInstance) {
+		return storedProcs.reduce(async (next, proc) => {
+			await next;
+
+			try {
+				return await containerInstance.scripts.storedProcedures.create(proc);
+			} catch (error) {
+				if (error.code !== 409) {
+					throw error;
+				}
+				const result = new StoredProcedure(containerInstance, proc.id, containerInstance.clientContext);
+
+				return await result.replace(proc);
+			}
+		}, Promise.resolve());
+	},
+
+	createUDFs(udfs, containerInstance) {
+		return udfs.reduce(async (next, udf) => {
+			await next;
+
+			try {
+				return await containerInstance.scripts.userDefinedFunctions.create(udf);
+			} catch (error) {
+				if (error.code !== 409) {
+					throw error;
+				}
+				const result = new UserDefinedFunction(containerInstance, udf.id, containerInstance.clientContext);
+
+				return await result.replace(udf);
+			}
+		}, Promise.resolve());
+	},
+
 	createTriggers(triggers, containerInstance) {
-		return Promise.all(this.mapTriggers(triggers).map(trigger => {
-			return containerInstance.scripts.triggers.create(trigger);
-		}));
+		return triggers.reduce(async (next, trigger) => {
+			await next;
+
+			try {
+				return await containerInstance.scripts.triggers.create(trigger);
+			} catch (error) {
+				if (error.code !== 409) {
+					throw error;
+				}
+				const result = new Trigger(containerInstance, trigger.id, containerInstance.clientContext);
+
+				return await result.replace(trigger);
+			}
+		}, Promise.resolve());
 	},
 
 	getTTL(containerData) {

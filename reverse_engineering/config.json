@@ -4,5 +4,7 @@
 		"WRONG_CONNECTION": "Cannot connect to Cosmos DB instance"
 	},
 	"excludeDocKind": ["id"],
-	"scenario": "getDatabases"
+	"scenario": "getDatabases",
+	"connectionList": [ "name", "gremlinEndpoint" ],
+	"widestColumn": "gremlinEndpoint"
 }
