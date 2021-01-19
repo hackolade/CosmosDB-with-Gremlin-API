@@ -17,6 +17,7 @@ module.exports = {
 					null,
 					JSON.stringify(
 						{
+							partitionKey: getPartitionKey(_)(containerData),
 							indexingPolicy: getIndexPolicyScript(_)(containerData),
 							...scriptHelper.addItems(_)(containerData),
 						},
@@ -178,13 +179,7 @@ module.exports = {
 };
 
 const getPartitionKey = (_) => (containerData) => {
-	const partitionKey = _.get(containerData, '[0].partitionKey[0].name');
-
-	if (!partitionKey) {
-		return;
-	}
-
-	return '/' + partitionKey.split('.').slice(1).join('/');
+	return _.get(containerData, '[0].partitionKey[0].name');
 };
 
 const updateIndexingPolicy = (indexes) => {
