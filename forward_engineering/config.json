@@ -15,5 +15,8 @@
 		{ "name": "Cosmos DB Script", "keyword": "cosmosdb", "fileExtensions": [ {
 			"label": "application/json", "value": "json"
 		} ] }
-	]
+	],
+	"splitView": {
+		"byOptions": true
+	}
 }

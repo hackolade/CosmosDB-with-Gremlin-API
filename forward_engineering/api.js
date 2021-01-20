@@ -7,56 +7,26 @@ const DEFAULT_INDENT = '    ';
 let graphName = 'g';
 
 module.exports = {
-	generateContainerScript(data, logger, cb) {
-		let { collections, relationships, jsonData, containerData, options } = data;
-		const scriptId = _.get(options, 'targetScriptOptions.keyword');
+	generateContainerScript(data, logger, cb, app) {
 		logger.clear();
 		try {
-			if (scriptId === 'cosmosdb') {
-				return cb(
-					null,
-					JSON.stringify(
-						{
-							partitionKey: getPartitionKey(_)(containerData),
-							indexingPolicy: getIndexPolicyScript(_)(containerData),
-							...scriptHelper.addItems(_)(containerData),
-						},
-						null,
-						2
-					)
-				);
+			const _ = app.require('lodash');
+			const scriptId = _.get(data, 'options.targetScriptOptions.keyword');
+
+			if (data.options.origin === 'ui') {
+				cb(null, [
+					{
+						script: getGremlinScript(_, data),
+					},
+					{
+						script: getCosmosDbScript(_, data.containerData),
+					}
+				]);
+			} else if (scriptId === 'cosmosdb') {
+				cb(null, getCosmosDbScript(_, data.containerData));
+			} else {
+				cb(null, getGremlinScript(_, data));
 			}
-
-			let resultScript = '';
-			const traversalSource = _.get(containerData, [0, 'traversalSource'], 'g');
-			graphName = transformToValidGremlinName(traversalSource);
-			collections = collections.map(JSON.parse);
-			relationships = relationships.map(JSON.parse);
-			const indexesData = _.get(containerData, [1, 'indexes'], [])
-
-			const variables = _.get(containerData, [0, 'graphVariables'], [])
-			const variablesScript = generateVariables(variables);
-			const verticesScript = generateVertices(collections, jsonData);
-			const edgesScript = generateEdges(collections, relationships, jsonData);
-			const indexesScript = generateIndexes(indexesData);
-
-			if (variablesScript) {
-				resultScript += variablesScript + '\n';
-			}
-
-			if (verticesScript) {
-				resultScript += verticesScript;
-			}
-
-			if (edgesScript) {
-				resultScript += '\n\n' + edgesScript;
-			}
-
-			if (indexesScript) {
-				resultScript += '\n\n' + indexesScript;
-			}
-
-			cb(null, resultScript);
 		} catch(e) {
 			logger.log('error', { message: e.message, stack: e.stack }, 'Forward-Engineering Error');
 			setTimeout(() => {
@@ -110,52 +80,53 @@ module.exports = {
 					defaultTtl: applyToInstanceHelper.getTTL(containerProps),
 				});
 
-			let functionsScripts;
+			progress('Applying Cosmos DB script ...');
+			const cosmosDBScript = JSON.parse(_.get(data, 'script[1].script', '""'));
 
-			if (targetScriptOptions.id === 'cosmosdb') {
-				progress('Applying Cosmos DB script ...');
-				const script = JSON.parse(data.script);
+			progress('Update indexing policy ...');
 
-				progress('Update indexing policy ...');
+			await containerResponse.container.replace({
+				id: graphName,
+				partitionKey: containerResponse.resource.partitionKey,
+				indexingPolicy: updateIndexingPolicy(cosmosDBScript.indexingPolicy),
+			});
 
-				await containerResponse.container.replace({
-					id: graphName,
-					partitionKey: containerResponse.resource.partitionKey,
-					indexingPolicy: updateIndexingPolicy(script.indexingPolicy),
-				});
-
-				const storedProcs = _.get(script, 'Stored Procedures', []);
-				if (storedProcs.length) {
-					progress('Upload stored procs ...');
-					await applyToInstanceHelper.createStoredProcs(storedProcs, containerResponse.container);
-				}
-
-				const udfs = _.get(script, 'User Defined Functions', []);
-				if (udfs.length) {
-					progress('Upload user defined functions ...');
-					await applyToInstanceHelper.createUDFs(udfs, containerResponse.container);
-				}
-
-				const triggers = _.get(script, 'Triggers', []);
-				if (triggers.length) {
-					progress('Upload triggers ...');
-					await applyToInstanceHelper.createTriggers(triggers, containerResponse.container);
-				}
-
-			} else {
-				progress('Applying Gremlin script ...');
-
-				const { labels, edges } = applyToInstanceHelper.parseScriptStatements(data.script);
-				const gremlinClient = await applyToInstanceHelper.getGremlinClient(data, containerProps.dbId, graphName);
-
-				progress('Uploading labels ...');
-				
-				await applyToInstanceHelper.runGremlinQueries(gremlinClient, labels);
-				
-				progress('Uploading edges ...');
-	
-				await applyToInstanceHelper.runGremlinQueries(gremlinClient, edges);
+			const storedProcs = _.get(cosmosDBScript, 'Stored Procedures', []);
+			if (storedProcs.length) {
+				progress('Upload stored procs ...');
+				await applyToInstanceHelper.createStoredProcs(storedProcs, containerResponse.container);
 			}
+
+			const udfs = _.get(cosmosDBScript, 'User Defined Functions', []);
+			if (udfs.length) {
+				progress('Upload user defined functions ...');
+				await applyToInstanceHelper.createUDFs(udfs, containerResponse.container);
+			}
+
+			const triggers = _.get(cosmosDBScript, 'Triggers', []);
+			if (triggers.length) {
+				progress('Upload triggers ...');
+				await applyToInstanceHelper.createTriggers(triggers, containerResponse.container);
+			}
+
+			const gremlinScript = _.get(data, 'script[0].script', '');
+
+			if (!gremlinScript) {
+				return cb();
+			}
+
+			progress('Applying Gremlin script ...');
+
+			const { labels, edges } = applyToInstanceHelper.parseScriptStatements(gremlinScript);
+			const gremlinClient = await applyToInstanceHelper.getGremlinClient(data, containerProps.dbId, graphName);
+
+			progress('Uploading labels ...');
+			
+			await applyToInstanceHelper.runGremlinQueries(gremlinClient, labels);
+			
+			progress('Uploading edges ...');
+
+			await applyToInstanceHelper.runGremlinQueries(gremlinClient, edges);
 			
 			cb();
 		} catch(err) {
@@ -176,6 +147,54 @@ module.exports = {
 			return cb(mapError(err));
 		}
 	}
+};
+
+const getGremlinScript = (_, data) => {
+	let { collections, relationships, jsonData, containerData, options } = data;
+	let resultScript = '';
+	const traversalSource = _.get(containerData, [0, 'traversalSource'], 'g');
+	graphName = transformToValidGremlinName(traversalSource);
+	collections = collections.map(JSON.parse);
+	relationships = relationships.map(JSON.parse);
+	const indexesData = _.get(containerData, [1, 'indexes'], [])
+
+	const variables = _.get(containerData, [0, 'graphVariables'], [])
+	const variablesScript = generateVariables(variables);
+	const verticesScript = generateVertices(collections, jsonData);
+	const edgesScript = generateEdges(collections, relationships, jsonData);
+	const indexesScript = generateIndexes(indexesData);
+
+	if (variablesScript) {
+		resultScript += variablesScript + '\n';
+	}
+
+	if (verticesScript) {
+		resultScript += verticesScript;
+	}
+
+	if (edgesScript) {
+		resultScript += '\n\n' + edgesScript;
+	}
+
+	if (indexesScript) {
+		resultScript += '\n\n' + indexesScript;
+	}
+
+	return resultScript;
+};
+
+const getCosmosDbScript = (_, containerData) => {
+	const script = JSON.stringify(
+		{
+			partitionKey: getPartitionKey(_)(containerData),
+			indexingPolicy: getIndexPolicyScript(_)(containerData),
+			...scriptHelper.addItems(_)(containerData),
+		},
+		null,
+		2
+	);
+
+	return script;
 };
 
 const getPartitionKey = (_) => (containerData) => {
