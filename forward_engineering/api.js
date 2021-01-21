@@ -198,7 +198,9 @@ const getCosmosDbScript = (_, containerData) => {
 };
 
 const getPartitionKey = (_) => (containerData) => {
-	return _.get(containerData, '[0].partitionKey[0].name');
+	const partitionKey = _.get(containerData, '[0].partitionKey[0].name', '').trim().replace(/\/$/, '');
+
+	return partitionKey;
 };
 
 const updateIndexingPolicy = (indexes) => {
