@@ -53,20 +53,10 @@ const getPath = (paths = []) => {
 	}).concat(items[items.length - 1]).join('/');
 };
 
-const getIndex = (_) => (item) => {
-	const precision = Number(item.indexPrecision);
-	return _.flow(
-		add('kind', item.kind),
-		add('dataType', item.dataType),
-		add('precision', isNaN(precision) ? undefined : Number(precision)),
-	)({});
-};
-
 const getIncludedPath = (_) => (includedPaths = []) => {
 	return includedPaths.map(item => {
 		return _.flow(
 			add('path', getPath(item.indexIncludedPath)),
-			add('indexes', (item.inclIndexes || []).map(getIndex(_)).filter(index => !_.isEmpty(index))),
 		)({});
 	}).filter(item => !_.isEmpty(item));
 };
@@ -75,7 +65,6 @@ const getExcludedPath = (_) => (excludedPaths = []) => {
 	return excludedPaths.map(item => {
 		return _.flow(
 			add('path', getPath(item.indexExcludedPath)),
-			add('indexes', (item.exclIndexes || []).map(getIndex(_)).filter(index => !_.isEmpty(index))),
 		)({});
 	}).filter(item => !_.isEmpty(item));
 };
