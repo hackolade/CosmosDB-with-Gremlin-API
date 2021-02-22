@@ -1,44 +1,32 @@
 const _ = require('lodash');
 const applyToInstanceHelper = require('./applyToInstanceHelper');
+const getIndexPolicyScript = require('./getIndexPolicyScript');
+const scriptHelper = require('./scriptHelper');
 
 const DEFAULT_INDENT = '    ';
 let graphName = 'g';
 
 module.exports = {
-	generateContainerScript(data, logger, cb) {
-		let { collections, relationships, jsonData, containerData } = data;
+	generateContainerScript(data, logger, cb, app) {
 		logger.clear();
 		try {
-			let resultScript = '';
-			const traversalSource = _.get(containerData, [0, 'traversalSource'], 'g');
-			graphName = transformToValidGremlinName(traversalSource);
-			collections = collections.map(JSON.parse);
-			relationships = relationships.map(JSON.parse);
-			const indexesData = _.get(containerData, [1, 'indexes'], [])
+			const _ = app.require('lodash');
+			const scriptId = _.get(data, 'options.targetScriptOptions.keyword');
 
-			const variables = _.get(containerData, [0, 'graphVariables'], [])
-			const variablesScript = generateVariables(variables);
-			const verticesScript = generateVertices(collections, jsonData);
-			const edgesScript = generateEdges(collections, relationships, jsonData);
-			const indexesScript = generateIndexes(indexesData);
-
-			if (variablesScript) {
-				resultScript += variablesScript + '\n';
+			if (data.options.origin === 'ui') {
+				cb(null, [
+					{
+						script: getGremlinScript(_, data),
+					},
+					{
+						script: getCosmosDbScript(_, data.containerData),
+					}
+				]);
+			} else if (scriptId === 'cosmosdb') {
+				cb(null, getCosmosDbScript(_, data.containerData));
+			} else {
+				cb(null, getGremlinScript(_, data));
 			}
-
-			if (verticesScript) {
-				resultScript += verticesScript;
-			}
-
-			if (edgesScript) {
-				resultScript += '\n\n' + edgesScript;
-			}
-
-			if (indexesScript) {
-				resultScript += '\n\n' + indexesScript;
-			}
-
-			cb(null, resultScript);
 		} catch(e) {
 			logger.log('error', { message: e.message, stack: e.stack }, 'Forward-Engineering Error');
 			setTimeout(() => {
@@ -60,6 +48,7 @@ module.exports = {
 			if (!data.containerData) {
 				return cb({ message: 'Graph wasn\'t specified' });
 			}
+			const targetScriptOptions = data.targetScriptOptions || {};
 			const containerProps = _.get(data.containerData, '[0]', {});
 			if (!containerProps.dbId) {
 				return cb({ message: 'Database id wasn\'t specified' });
@@ -68,46 +57,80 @@ module.exports = {
 			if (!graphName) {
 				return cb({ message: 'Graph name wasn\'t specified' });
 			}
+			const progress = createLogger(logger, containerProps.dbId, graphName);
 
 			const cosmosClient = applyToInstanceHelper.setUpDocumentClient(data);
+
+			progress('Create database if not exists ...');
+
 			await cosmosClient.databases.createIfNotExists({
 				id: containerProps.dbId
 			});
+
+			progress('Create container if not exists ...');
+
 			const containerResponse = await cosmosClient
 				.database(containerProps.dbId)
 				.containers.createIfNotExists({
 					id: graphName,
-					partitionKey: containerProps.partitionKey,
+					partitionKey: getPartitionKey(_)(data.containerData),
 					...(containerProps.autopilot
 						? { maxThroughput: containerProps.throughput || 400 }
 						: { throughput: containerProps.throughput || 400 }),
 					defaultTtl: applyToInstanceHelper.getTTL(containerProps),
 				});
-			if (containerResponse.statusCode === 201) {
-				const containerInstance = cosmosClient.database(containerProps.dbId).container(graphName);
 
-				const storedProcs = _.get(data.containerData, '[2].storedProcs', []);
-				if (storedProcs.length) {
-					await applyToInstanceHelper.createStoredProcs(storedProcs, containerInstance);
-				}
+			progress('Applying Cosmos DB script ...');
+			const cosmosDBScript = JSON.parse(_.get(data, 'script[1].script', '""'));
 
-				const udfs = _.get(data.containerData, '[3].udfs', []);
-				if (udfs.length) {
-					await applyToInstanceHelper.createUDFs(udfs, containerInstance);
-				}
-				const triggers = _.get(data.containerData, '[4].triggers', []);
-				if (triggers.length) {
-					await applyToInstanceHelper.createTriggers(triggers, containerInstance);
-				}
+			progress('Update indexing policy ...');
+
+			await containerResponse.container.replace({
+				id: graphName,
+				partitionKey: containerResponse.resource.partitionKey,
+				indexingPolicy: updateIndexingPolicy(cosmosDBScript.indexingPolicy),
+			});
+
+			const storedProcs = _.get(cosmosDBScript, 'Stored Procedures', []);
+			if (storedProcs.length) {
+				progress('Upload stored procs ...');
+				await applyToInstanceHelper.createStoredProcs(storedProcs, containerResponse.container);
 			}
 
-			const { labels, edges } = applyToInstanceHelper.parseScriptStatements(data.script);
-			const gremlinClient = await applyToInstanceHelper.getGremlinClient(data, containerProps.dbId, graphName);
-			await applyToInstanceHelper.runGremlinQueries(gremlinClient, labels);
-			await applyToInstanceHelper.runGremlinQueries(gremlinClient, edges);
+			const udfs = _.get(cosmosDBScript, 'User Defined Functions', []);
+			if (udfs.length) {
+				progress('Upload user defined functions ...');
+				await applyToInstanceHelper.createUDFs(udfs, containerResponse.container);
+			}
 
+			const triggers = _.get(cosmosDBScript, 'Triggers', []);
+			if (triggers.length) {
+				progress('Upload triggers ...');
+				await applyToInstanceHelper.createTriggers(triggers, containerResponse.container);
+			}
+
+			const gremlinScript = _.get(data, 'script[0].script', '');
+
+			if (!gremlinScript) {
+				return cb();
+			}
+
+			progress('Applying Gremlin script ...');
+
+			const { labels, edges } = applyToInstanceHelper.parseScriptStatements(gremlinScript);
+			const gremlinClient = await applyToInstanceHelper.getGremlinClient(data, containerProps.dbId, graphName);
+
+			progress('Uploading labels ...');
+			
+			await applyToInstanceHelper.runGremlinQueries(gremlinClient, labels);
+			
+			progress('Uploading edges ...');
+
+			await applyToInstanceHelper.runGremlinQueries(gremlinClient, edges);
+			
 			cb();
 		} catch(err) {
+			logger.log('error', mapError(err));
 			cb(mapError(err));
 		}
 	},
@@ -124,6 +147,115 @@ module.exports = {
 			return cb(mapError(err));
 		}
 	}
+};
+
+const getGremlinScript = (_, data) => {
+	let { collections, relationships, jsonData, containerData, options } = data;
+	let resultScript = '';
+	const traversalSource = _.get(containerData, [0, 'traversalSource'], 'g');
+	graphName = transformToValidGremlinName(traversalSource);
+	collections = collections.map(JSON.parse);
+	relationships = relationships.map(JSON.parse);
+	const indexesData = _.get(containerData, [1, 'indexes'], [])
+
+	const variables = _.get(containerData, [0, 'graphVariables'], [])
+	const variablesScript = generateVariables(variables);
+	const verticesScript = generateVertices(collections, jsonData);
+	const edgesScript = generateEdges(collections, relationships, jsonData);
+	const indexesScript = generateIndexes(indexesData);
+
+	if (variablesScript) {
+		resultScript += variablesScript + '\n';
+	}
+
+	if (verticesScript) {
+		resultScript += verticesScript;
+	}
+
+	if (edgesScript) {
+		resultScript += '\n\n' + edgesScript;
+	}
+
+	if (indexesScript) {
+		resultScript += '\n\n' + indexesScript;
+	}
+
+	return resultScript;
+};
+
+const getCosmosDbScript = (_, containerData) => {
+	const script = JSON.stringify(
+		{
+			partitionKey: getPartitionKey(_)(containerData),
+			indexingPolicy: getIndexPolicyScript(_)(containerData),
+			...scriptHelper.addItems(_)(containerData),
+		},
+		null,
+		2
+	);
+
+	return script;
+};
+
+const getPartitionKey = (_) => (containerData) => {
+	const partitionKey = _.get(containerData, '[0].partitionKey[0].name', '').trim().replace(/\/$/, '');
+
+	return partitionKey;
+};
+
+const updateIndexingPolicy = (indexes) => {
+	const result = {...indexes};
+	
+	if (Array.isArray(result.includedPaths)) {
+		result.includedPaths = addDataType(result.includedPaths);
+	}
+
+	if (Array.isArray(result.excludedPaths)) {
+		result.excludedPaths = addDataType(result.excludedPaths);
+	}
+
+	if (Array.isArray(result.spatialIndexes)) {
+		result.spatialIndexes = result.spatialIndexes.map(addSpatialTypes);
+	}
+
+	return result;
+};
+
+const addDataType = (indexes) => {
+	return indexes.map(index => {
+		if (!Array.isArray(index.indexes)) {
+			return index;
+		}
+
+		return {
+			...index,
+			indexes: index.indexes.map(item => ({
+				...item,
+				dataType: item.dataType || 'String',
+			})),
+		};
+	});
+};
+
+const addSpatialTypes = (spatialIndex) => {
+	if (Array.isArray(spatialIndex.types) && spatialIndex.types.length) {
+		return spatialIndex;
+	}
+	
+	return {
+		...spatialIndex,
+		types: [
+			"Point",
+			"LineString",
+			"Polygon",
+			"MultiPolygon"
+		]
+	};
+};
+
+const createLogger = (logger, containerName, entityName) => (message) => {
+	logger.progress({ message, containerName, entityName });
+	logger.log('info', { message }, 'Applying to instance');
 };
 
 const generateVariables = variables => {

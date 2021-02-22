@@ -117,7 +117,8 @@ module.exports = {
 				const offerInfo = await getOfferType(collection);
 				const { autopilot, throughput } = getOfferProps(offerInfo);
 				const partitionKey = getPartitionKey(collection);
-				const bucketInfo = {
+				const indexes = getIndexes(collection.indexingPolicy);
+				const bucketInfo = Object.assign({
 					dbId: data.database,
 					throughput,
 					autopilot,
@@ -128,8 +129,7 @@ module.exports = {
 					udfs,
 					TTL: getTTL(collection.defaultTtl),
 					TTLseconds: collection.defaultTtl
-				};
-				const indexes = getIndexes(collection.indexingPolicy);
+				}, indexes);
 
 				await gremlinHelper.connect({ collection: collectionName });
 				const nodesData = await getNodesData(collectionName, labels, logger, {
@@ -215,7 +215,6 @@ const getNodesData = (dbName, labels, logger, data) => {
 					includeEmptyCollection: data.includeEmptyCollection, 
 					fieldInference: data.fieldInference,
 					indexes: [],
-					bucketIndexes: data.indexes,
 					bucketInfo: data.bucketInfo,
 					partitionKey: data.partitionKey,
 				});
@@ -388,14 +387,6 @@ async function listCollections(databaseId) {
 	return containers;
 }
 
-function getIndexes(indexingPolicy){
-	const rangeIndexes = getRangeIndexes(indexingPolicy);
-	const spatialIndexes = getSpatialIndexes(indexingPolicy);
-	const compositeIndexes = getCompositeIndexes(indexingPolicy);
-
-	return rangeIndexes.concat(spatialIndexes).concat(compositeIndexes);
-}
-
 async function getOfferType(collection) {
 	const querySpec = {
 		query: 'SELECT * FROM root r WHERE  r.resource = @link',
@@ -410,73 +401,6 @@ async function getOfferType(collection) {
 	return offer.length > 0 && offer[0];
 }
 
-function getRangeIndexes(indexingPolicy) {
-	let rangeIndexes = [];
-	const excludedPaths = indexingPolicy.excludedPaths.map(({ path }) => path).join(', ');
-	
-	if(indexingPolicy) {
-		indexingPolicy.includedPaths.forEach((item, i) => {
-			if (item.indexes) {
-				const indexes = item.indexes.map((index, j) => {
-					return {
-						name: `New Index(${j+1})`,
-						indexPrecision: index.precision,
-						automatic: indexingPolicy.automatic,
-						mode: indexingPolicy.indexingMode,
-						indexIncludedPath: item.path,
-						indexExcludedPath: excludedPaths,
-						dataType: index.dataType,
-						kind: index.kind
-					};
-				});
-				rangeIndexes = rangeIndexes.concat(rangeIndexes, indexes);
-			} else {
-				const index = {
-					name: `New Index(${i+1})`,
-					automatic: indexingPolicy.automatic,
-					mode: indexingPolicy.indexingMode,
-					indexIncludedPath: item.path,
-					indexExcludedPath: excludedPaths,
-					kind: 'Range'
-				}
-				rangeIndexes.push(index);
-			}
-		});
-	}
-	return rangeIndexes;
-}
-
-function getSpatialIndexes(indexingPolicy) {
-	if (!indexingPolicy.spatialIndexes) {
-		return [];
-	}
-	return indexingPolicy.spatialIndexes.map(item => {
-		return {
-			name: 'Spatial index',
-			automatic: indexingPolicy.automatic,
-			mode: indexingPolicy.indexingMode,
-			kind: 'Spatial',
-			indexIncludedPath: item.path,
-			dataTypes: item.types.map(type => ({ spatialType: type }))
-		};
-	});
-}
-
-function getCompositeIndexes(indexingPolicy) {
-	if (!indexingPolicy.compositeIndexes) {
-		return [];
-	}
-	return indexingPolicy.compositeIndexes.map(item => {
-		return {
-			name: 'Composite index',
-			automatic: indexingPolicy.automatic,
-			mode: indexingPolicy.indexingMode,
-			kind: 'Composite',
-			compositeFields: item.map(({ order, path }) => ({ compositeFieldPath: path, compositeFieldOrder: order }))
-		};
-	});
-}
-
 function getPartitionKey(collection) {
 	if (!collection.partitionKey) {
 		return '';
@@ -484,8 +408,7 @@ function getPartitionKey(collection) {
 	if (!Array.isArray(collection.partitionKey.paths)) {
 		return '';
 	}
-	
-	return collection.partitionKey.paths.join(',');
+	return collection.partitionKey.paths.map(getKeyPath);
 }
 
 function getUniqueKeys(collection) {
@@ -628,3 +551,84 @@ async function getAdditionalAccountInfo(connectionInfo, logger) {
 		return {};
 	}
 }
+
+function capitalizeFirstLetter(str) {
+	return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function getIndexes(indexingPolicy){
+	return {
+		indexingMode: capitalizeFirstLetter(indexingPolicy.indexingMode || ''),
+		indexingAutomatic: indexingPolicy.automatic === true ? 'true' : 'false',
+		includedPaths: (indexingPolicy.includedPaths || []).map((index, i) => {
+			return {
+				name: `Included (${i + 1})`,
+				indexIncludedPath: [getIndexPath(index.path)],
+			};
+		}),
+		excludedPaths: indexingPolicy.excludedPaths.map((index, i) => {
+			return {
+				name: `Excluded (${i + 1})`,
+				indexExcludedPath: [getIndexPath(index.path)],
+			};
+		}),
+		spatialIndexes: (indexingPolicy.spatialIndexes || []).map((index, i) => {
+			return {
+				name: `Spatial (${i + 1})`,
+				indexIncludedPath: [getIndexPath(index.path)],
+				dataTypes: (index.types || []).map(spatialType => ({
+					spatialType,
+				})),
+			};
+		}),
+		compositeIndexes: (indexingPolicy.compositeIndexes || []).map((indexes, i) => {
+			const compositeFieldPath = indexes.map((index, i) => {
+				return {
+					name: getKeyPath(index.path),
+					type: index.order || 'ascending',
+				};
+			}, {});
+
+			return {
+				name: `Composite (${i + 1})`,
+				compositeFieldPath,
+			};
+		}),
+	};
+}
+
+const getIndexPathType = (path) => {
+	if (/\?$/.test(path)) {
+		return '?';
+	} else if (/\*$/.test(path)) {
+		return '*';
+	} else {
+		return '';
+	}
+};
+
+const getIndexPath = (path) => {
+	const type = getIndexPathType(path);
+	const name = path.replace(/\/(\?|\*)$/, '');
+
+	return {
+		name: getKeyPath(name),
+		type,
+	};
+};
+
+const trimKey = (key) => {
+	const trimRegexp = /^\"([\s\S]+)\"$/i;
+
+	if (!trimRegexp.test(key)) {
+		return key;
+	}
+
+	const result = key.match(trimRegexp);
+
+	return result[1] || key;
+};
+
+const getKeyPath = (keyPath) => {
+	return (keyPath || '').split('/').filter(Boolean).map(trimKey).map(item => item === '[]' ? 0 : item).join('.');
+};
