@@ -101,6 +101,7 @@
 	"MODAL_WINDOW___CONTAIN_COLLECTION": "vertex label",
 	"MODAL_WINDOW___DB_CONNECTION_PROCESS": "Cosmos DB Reverse-Engineering Process",
 	"MODAL_WINDOW___DB_CONNECTIONS_LIST_TITLE": "Cosmos DB (Gremlin API) Connections",
+	"MODAL_WINDOW___NO_DOCUMENTS_FOR_RE": "There are no vertices and edges",
 	"PROGRESS_BAR___DATABASE": "Graph",
 	"PROGRESS_BAR___COLLECTION": "Vertex label",
 	"PROGRESS_BAR___PROCESS": "Process",
