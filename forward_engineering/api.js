@@ -81,7 +81,13 @@ module.exports = {
 				});
 
 			progress('Applying Cosmos DB script ...');
-			const cosmosDBScript = JSON.parse(_.get(data, 'script[1].script', '""'));
+			const splittedScript = data.script.split('\n');
+			let cosmosDBStartLineNumber = splittedScript.indexOf('{');
+			if (cosmosDBStartLineNumber === -1) {
+				cosmosDBStartLineNumber = splittedScript.length;
+			}
+			let gremlinScript = splittedScript.slice(0, cosmosDBStartLineNumber).join('\n');
+			let cosmosDBScript = JSON.parse(splittedScript.slice(cosmosDBStartLineNumber).join('\n') || '""');
 
 			progress('Update indexing policy ...');
 
@@ -108,8 +114,6 @@ module.exports = {
 				progress('Upload triggers ...');
 				await applyToInstanceHelper.createTriggers(triggers, containerResponse.container);
 			}
-
-			const gremlinScript = _.get(data, 'script[0].script', '');
 
 			if (!gremlinScript) {
 				return cb();
