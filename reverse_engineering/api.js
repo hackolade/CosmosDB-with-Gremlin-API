@@ -64,7 +64,9 @@ module.exports = {
 			const result = await collections.reduce(async(acc, collection) => {
 				const res = await acc;
 				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id });
+				logger.log('info', '', 'Connected to the Gremlin API', connectionInfo.hiddenKeys);
 				const collectionLebels = await gremlinHelper.getLabels();
+				logger.log('info', { collectionLabels: collectionLebels }, 'Collection labels list', connectionInfo.hiddenKeys);
 				gremlinHelper.close();
 
 				return [
@@ -94,6 +96,7 @@ module.exports = {
 			const includeEmptyCollection = data.includeEmptyCollection;
 			const includeSystemCollection = data.includeSystemCollection;
 			const recordSamplingSettings = data.recordSamplingSettings;
+			logger.log('info', '', 'Getting DB account info', data.hiddenKeys);
 			const { resource: accountInfo } = await client.getDatabaseAccount();
 			const additionalAccountInfo = await getAdditionalAccountInfo(data, logger);
 			const modelInfo = {
@@ -131,6 +134,7 @@ module.exports = {
 					TTLseconds: collection.defaultTtl
 				}, indexes);
 
+				logger.log('info', { collection: collectionName }, 'Getting container nodes data', data.hiddenKeys);
 				await gremlinHelper.connect({ collection: collectionName });
 				const nodesData = await getNodesData(collectionName, labels, logger, {
 					recordSamplingSettings,
