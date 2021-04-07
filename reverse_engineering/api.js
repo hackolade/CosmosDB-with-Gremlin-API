@@ -69,6 +69,7 @@ module.exports = {
 				try {
 					collectionLabels = await gremlinHelper.getLabels();
 					logger.log('info', { collectionLabels: collectionLabels }, 'Collection labels list', connectionInfo.hiddenKeys);
+					gremlinHelper.close();
 				} catch (err) {
 					if (err.message?.includes('NullReferenceException')) {
 						logger.log('info', { collectionName: collection.id }, 'Skipping document collection', connectionInfo.hiddenKeys);
