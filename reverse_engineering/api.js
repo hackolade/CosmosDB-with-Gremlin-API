@@ -65,15 +65,25 @@ module.exports = {
 				const res = await acc;
 				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id });
 				logger.log('info', '', 'Connected to the Gremlin API', connectionInfo.hiddenKeys);
-				const collectionLebels = await gremlinHelper.getLabels();
-				logger.log('info', { collectionLabels: collectionLebels }, 'Collection labels list', connectionInfo.hiddenKeys);
-				gremlinHelper.close();
+				let collectionLabels;
+				try {
+					collectionLabels = await gremlinHelper.getLabels();
+					logger.log('info', { collectionLabels: collectionLabels }, 'Collection labels list', connectionInfo.hiddenKeys);
+				} catch (err) {
+					if (err.message?.includes('NullReferenceException')) {
+						logger.log('info', { collectionName: collection.id }, 'Skipping document collection', connectionInfo.hiddenKeys);
+						gremlinHelper.close();
+						return res;
+					} else {
+						throw err;
+					}
+				}
 
 				return [
 					...res,
 					{
 						dbName: collection.id,
-						dbCollections: collectionLebels,
+						dbCollections: collectionLabels,
 					}
 				];
 			}, []);
