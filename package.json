@@ -1,7 +1,7 @@
 {
     "name": "CosmosDB-with-Gremlin-API",
-    "version": "0.1.12",
-    "versionDate": "2021-05-13",
+    "version": "0.1.13",
+    "versionDate": "2021-05-17",
     "author": "hackolade",
     "engines": {
         "hackolade": "4.3.10",
