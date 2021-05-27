@@ -1,7 +1,8 @@
 'use strict';
 
 const async = require('async');
-const _ = require('lodash');
+let _;
+const { setDependencies, dependencies } = require('./appDependencies');
 const { CosmosClient } = require('@azure/cosmos');
 const axios = require('axios');
 const qs = require('qs');
@@ -9,7 +10,9 @@ const gremlinHelper = require('./gremlinHelper');
 let client;
 
 module.exports = {
-	connect: function(connectionInfo, logger, cb){
+	connect: function(connectionInfo, logger, cb, app){
+		setDependencies(app);
+		_ = dependencies.lodash;
 		logger.clear();
 		logger.log('info', connectionInfo, 'connectionInfo', connectionInfo.hiddenKeys);
 		cb();
@@ -20,8 +23,10 @@ module.exports = {
 		cb();
 	},
 
-	testConnection: async function(connectionInfo, logger, cb) {
+	testConnection: async function(connectionInfo, logger, cb, app) {
 		try {
+			setDependencies(app);
+			_ = dependencies.lodash;
 			logger.clear();
 			client = setUpDocumentClient(connectionInfo);
 
@@ -33,8 +38,10 @@ module.exports = {
 		}
 	},
 
-	getDatabases: async function(connectionInfo, logger, cb){
+	getDatabases: async function(connectionInfo, logger, cb, app){
 		try {
+			setDependencies(app);
+			_ = dependencies.lodash;
 			client = setUpDocumentClient(connectionInfo);
 			logger.clear();
 			logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
@@ -53,8 +60,10 @@ module.exports = {
 		cb(null, []);
 	},
 
-	getDbCollectionsNames: async function(connectionInfo, logger, cb) {
+	getDbCollectionsNames: async function(connectionInfo, logger, cb, app) {
 		try {
+			setDependencies(app);
+			_ = dependencies.lodash;
 			client = setUpDocumentClient(connectionInfo);
 			logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
 			logger.log('info', { Database: connectionInfo.database }, 'Getting collections list for current database', connectionInfo.hiddenKeys);
@@ -96,8 +105,10 @@ module.exports = {
 		}
 	},
 
-	getDbCollectionsData: async function(data, logger, cb) {
+	getDbCollectionsData: async function(data, logger, cb, app) {
 		try {
+			setDependencies(app);
+			_ = dependencies.lodash;
 			logger.clear();
 			logger.log('info', data, 'connectionInfo', data.hiddenKeys);
 	
@@ -128,7 +139,7 @@ module.exports = {
 				const triggers = await getTriggers(containerInstance);
 				const udfs = await getUdfs(containerInstance);
 				const collection = await getCollectionById(containerInstance);
-				const offerInfo = await getOfferType(collection);
+				const offerInfo = await getOfferType(collection, logger);
 				const { autopilot, throughput } = getOfferProps(offerInfo);
 				const partitionKey = getPartitionKey(collection);
 				const indexes = getIndexes(collection.indexingPolicy);
@@ -402,18 +413,25 @@ async function listCollections(databaseId) {
 	return containers;
 }
 
-async function getOfferType(collection) {
-	const querySpec = {
-		query: 'SELECT * FROM root r WHERE  r.resource = @link',
-		parameters: [
-			{
-				name: '@link',
-				value: collection._self
-			}
-		]
-	};
-	const { resources: offer } = await client.offers.query(querySpec).fetchAll();
-	return offer.length > 0 && offer[0];
+async function getOfferType(collection, logger) {
+	try {
+		const querySpec = {
+			query: 'SELECT * FROM root r WHERE  r.resource = @link',
+			parameters: [
+				{
+					name: '@link',
+					value: collection._self
+				}
+			]
+		};
+		const { resources: offer } = await client.offers.query(querySpec).fetchAll();
+
+		return offer.length > 0 && offer[0];
+	} catch (e) {
+		logger.log('error', { message: e.message, stack: e.stack }, '[Warning] Error querying offers');
+
+		return;
+	}
 }
 
 function getPartitionKey(collection) {

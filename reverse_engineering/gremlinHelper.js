@@ -3,6 +3,7 @@ let sshTunnel;
 const fs = require('fs');
 const ssh = require('tunnel-ssh');
 const gremlin = require('gremlin');
+const { dependencies } = require('./appDependencies');
 
 let client;
 let graphName = 'g';
@@ -152,6 +153,8 @@ const getDatabaseName = () => {
 };
 
 const getItemProperties = propertiesMap => {
+	const _ = dependencies.lodash;
+
 	return Object.entries(propertiesMap).reduce((obj, [key, rawValue]) => {
 		if (!_.isString(key)) {
 			return obj;
@@ -169,7 +172,7 @@ const getItemProperties = propertiesMap => {
 
 const handleMap = map => {
 	return Array.from(map).reduce((obj, [key, value]) => {
-		if (_.isMap(value)) {
+		if (dependencies.lodash.isMap(value)) {
 			return Object.assign(obj, { [key]: handleMap(value) })
 		}
 
@@ -228,7 +231,7 @@ const getIndexes = () => {
 
 const getFeatures = () => client.submit('graph.features()').then(data => {
 	const features = data.first();
-	if (!_.isString(features)) {
+	if (!dependencies.lodash.isString(features)) {
 		return '';
 	}
 
@@ -252,9 +255,9 @@ const getVariables = () => client.submit('graph.variables().asMap()')
 		const variablesMaps = data.toArray();
 		const variables = variablesMaps.map(handleMap);
 		const formattedVariables = variables.map(variableData => {
-			const variable = _.first(Object.keys(variableData));
+			const variable = dependencies.lodash.first(Object.keys(variableData));
 			const variableRawValue = variableData[variable];
-			const variableValue = _.isString(variableRawValue) ? variableRawValue : JSON.stringify(variableData[variable]);
+			const variableValue = dependencies.lodash.isString(variableRawValue) ? variableRawValue : JSON.stringify(variableData[variable]);
 
 			return {
 				graphVariableKey: variable,
@@ -267,6 +270,8 @@ const getVariables = () => client.submit('graph.variables().asMap()')
 
 const convertRootPropertyValue = (cardinality, property) => {
 	const value = property['@value'];
+	const _ = dependencies.lodash;
+
 	if (property['@type'] !== 'g:List' || !_.isArray(value)) {
 		return Object.assign({}, convertGraphSonToSchema(property), { propCardinality: cardinality });
 	}
@@ -317,6 +322,8 @@ const convertToChoice = item => ({
 });
 
 const convertRootGraphSON = cardinalityMap => propertiesMap => {
+	const _ = dependencies.lodash;
+
 	if (_.get(propertiesMap, '@type') !== 'g:Map') {
 		return {};
 	}
@@ -345,6 +352,8 @@ const convertRootGraphSON = cardinalityMap => propertiesMap => {
 const mergeJsonSchemas = schemas => schemas.reduce(mergeSchemas, {});
 
 const getMergedProperties = (a, b) => {
+	const _ = dependencies.lodash;
+
 	if (_.isEmpty(a.properties) && _.isEmpty(b.properties)) {
 		return {};
 	}
@@ -370,6 +379,8 @@ const getMergedProperties = (a, b) => {
 };
 
 const getMergedItems = (a, b) => {
+	const _ = dependencies.lodash;
+
 	if (_.isEmpty(a.items) && _.isEmpty(b.items)) {
 		return {};
 	}
@@ -397,6 +408,8 @@ const isComplexType = field => {
 };
 
 const mergeTypes = (a, b) => {
+	const _ = dependencies.lodash;
+
 	if (isChoice(a)) {
 		return addSubtype(a, b)
 	}
@@ -420,6 +433,8 @@ const mergeTypes = (a, b) => {
 }
 
 const mergeSchemas = (a, b) => {
+	const _ = dependencies.lodash;
+
 	if (_.isEmpty(a)) {
 		a = {};
 	}
@@ -489,6 +504,8 @@ const handleChoicesInItems = schema => {
 };
 
 const convertMetaPropertySample = sample => {
+	const _ = dependencies.lodash;
+
 	if (_.isUndefined(sample)) {
 		return '';
 	}
@@ -501,6 +518,8 @@ const convertMetaPropertySample = sample => {
 }
 
 const convertMetaProperty = metaPropertyMap => {
+	const _ = dependencies.lodash;
+
 	if (_.get(metaPropertyMap, '@type') !== 'g:Map') {
 		return {};
 	}
@@ -538,6 +557,8 @@ const convertMetaProperty = metaPropertyMap => {
 };
 
 const addMetaProperties = (schema, metaProperties) => {
+	const _ = dependencies.lodash;
+
 	const properties = schema.properties;
 	const mergedMetaProperties = metaProperties.reduce((result, propertyData) => {
 		const metaProperties = Object.keys(propertyData).reduce((result, key) => {
@@ -590,7 +611,7 @@ const addMetaProperties = (schema, metaProperties) => {
 	});
 }
 
-const handleChoices = _.flow([handleChoicesInProperties, handleChoicesInItems]);
+const handleChoices = dependencies.lodash.flow([handleChoicesInProperties, handleChoicesInItems]);
 
 const submitGraphSONDataScript = query => {
 	return Promise.resolve({
@@ -711,7 +732,7 @@ const groupPropertiesForMap = properties => {
 const getItems = properties => properties.map(convertGraphSonToSchema);
 
 const convertGraphSonToSchema = graphSON => {
-	if (!_.isPlainObject(graphSON)) {
+	if (!dependencies.lodash.isPlainObject(graphSON)) {
 		return {
 			type: typeof graphSON,
 			sample: graphSON

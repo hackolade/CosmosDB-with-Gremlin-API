@@ -1,9 +1,8 @@
-const _ = require('lodash');
 const { CosmosClient, StoredProcedure, UserDefinedFunction, Trigger } = require('../reverse_engineering/node_modules/@azure/cosmos');
 const gremlin = require('../reverse_engineering/node_modules/gremlin');
 
 
-const applyToInstanceHelper = {
+const applyToInstanceHelper = _ => ({
 	setUpDocumentClient(connectionInfo) {
 		const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
 		const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint)[1];
@@ -150,6 +149,6 @@ const applyToInstanceHelper = {
 				return -1;
 		}
 	},
-};
+});
 
 module.exports = applyToInstanceHelper;

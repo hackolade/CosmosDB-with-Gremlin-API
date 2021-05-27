@@ -1,4 +1,4 @@
-const _ = require('lodash');
+let _;
 const applyToInstanceHelper = require('./applyToInstanceHelper');
 const getIndexPolicyScript = require('./getIndexPolicyScript');
 const scriptHelper = require('./scriptHelper');
@@ -10,7 +10,7 @@ module.exports = {
 	generateContainerScript(data, logger, cb, app) {
 		logger.clear();
 		try {
-			const _ = app.require('lodash');
+			_ = app.require('lodash');
 			const scriptId = _.get(data, 'options.targetScriptOptions.keyword');
 
 			if (data.options.origin === 'ui') {
@@ -38,6 +38,7 @@ module.exports = {
 
 	async applyToInstance(data, logger, cb, app) {
 		try {
+			_ = app.require('lodash');
 			logger.clear();
 			logger.log('info', data, data.hiddenKeys);
 
@@ -59,7 +60,7 @@ module.exports = {
 			}
 			const progress = createLogger(logger, containerProps.dbId, graphName);
 
-			const cosmosClient = applyToInstanceHelper.setUpDocumentClient(data);
+			const cosmosClient = applyToInstanceHelper(_).setUpDocumentClient(data);
 
 			progress('Create database if not exists ...');
 
@@ -77,7 +78,7 @@ module.exports = {
 					...(containerProps.autopilot
 						? { maxThroughput: containerProps.throughput || 400 }
 						: { throughput: containerProps.throughput || 400 }),
-					defaultTtl: applyToInstanceHelper.getTTL(containerProps),
+					defaultTtl: applyToInstanceHelper(_).getTTL(containerProps),
 				});
 
 			progress('Applying Cosmos DB script ...');
@@ -100,19 +101,19 @@ module.exports = {
 			const storedProcs = _.get(cosmosDBScript, 'Stored Procedures', []);
 			if (storedProcs.length) {
 				progress('Upload stored procs ...');
-				await applyToInstanceHelper.createStoredProcs(storedProcs, containerResponse.container);
+				await applyToInstanceHelper(_).createStoredProcs(storedProcs, containerResponse.container);
 			}
 
 			const udfs = _.get(cosmosDBScript, 'User Defined Functions', []);
 			if (udfs.length) {
 				progress('Upload user defined functions ...');
-				await applyToInstanceHelper.createUDFs(udfs, containerResponse.container);
+				await applyToInstanceHelper(_).createUDFs(udfs, containerResponse.container);
 			}
 
 			const triggers = _.get(cosmosDBScript, 'Triggers', []);
 			if (triggers.length) {
 				progress('Upload triggers ...');
-				await applyToInstanceHelper.createTriggers(triggers, containerResponse.container);
+				await applyToInstanceHelper(_).createTriggers(triggers, containerResponse.container);
 			}
 
 			if (!gremlinScript) {
@@ -121,16 +122,16 @@ module.exports = {
 
 			progress('Applying Gremlin script ...');
 
-			const { labels, edges } = applyToInstanceHelper.parseScriptStatements(gremlinScript);
-			const gremlinClient = await applyToInstanceHelper.getGremlinClient(data, containerProps.dbId, graphName);
+			const { labels, edges } = applyToInstanceHelper(_).parseScriptStatements(gremlinScript);
+			const gremlinClient = await applyToInstanceHelper(_).getGremlinClient(data, containerProps.dbId, graphName);
 
 			progress('Uploading labels ...');
 			
-			await applyToInstanceHelper.runGremlinQueries(gremlinClient, labels);
+			await applyToInstanceHelper(_).runGremlinQueries(gremlinClient, labels);
 			
 			progress('Uploading edges ...');
 
-			await applyToInstanceHelper.runGremlinQueries(gremlinClient, edges);
+			await applyToInstanceHelper(_).runGremlinQueries(gremlinClient, edges);
 			
 			cb();
 		} catch(err) {
@@ -143,8 +144,9 @@ module.exports = {
 		logger.clear();
 		logger.log('info', connectionInfo, 'Test connection', connectionInfo.hiddenKeys);
 		try {
-			const client = applyToInstanceHelper.setUpDocumentClient(connectionInfo);
-			await applyToInstanceHelper.testConnection(client);
+			_ = app.require('lodash');
+			const client = applyToInstanceHelper(_).setUpDocumentClient(connectionInfo);
+			await applyToInstanceHelper(_).testConnection(client);
 			return cb();
 		} catch(err) {
 			logger.log('error', mapError(err), 'Connection failed');
