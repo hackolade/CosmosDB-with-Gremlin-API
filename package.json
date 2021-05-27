@@ -16,7 +16,6 @@
         "features": {
             "jaySchemaHasRequiredPatternField": false,
             "nestedCollections": {
-                "level": 1,
                 "isVirtual":true,
                 "hasMultipleParents":true
             },
