@@ -399,10 +399,9 @@ const handleMultiProperty = (property, name, jsonData) => {
 
 		return ', ' + metaPropertiesScript;
 	});
-	const cardinalities = properties.map(childProperty => childProperty.propCardinality || property.propCardinality);
 
 	return propertiesValues.reduce((script, valueScript, index) => 
-		`${script}.\n${DEFAULT_INDENT}property(${cardinalities[index]}, ${nameString}, ${valueScript}${metaProperties[index]})`
+		`${script}.\n${DEFAULT_INDENT}property(single, ${nameString}, ${valueScript}${metaProperties[index]})`
 	, '');
 };
 
@@ -552,12 +551,13 @@ const addPropertiesScript = (collection, vertexData) => {
 		}
 		const valueScript = convertPropertyValue(property, 2, type, vertexData[name]);
 
-		return script + getPropertyStatement(name, property.propCardinality, valueScript, metaPropertiesScript);
+		return script + getPropertyStatement(name, 'single', valueScript, metaPropertiesScript);
 	}, '');
 };
 
 const getPropertyStatement = (name, propCardinality, valueScript, metaPropertiesScript) => {
-	return `.\n${DEFAULT_INDENT}property(${propCardinality}, ${JSON.stringify(name)}, ${valueScript}${metaPropertiesScript})`
+	const cardinality = propCardinality === 'single' ? '' : propCardinality + ', '; 
+	return `.\n${DEFAULT_INDENT}property(${cardinality}${JSON.stringify(name)}, ${valueScript}${metaPropertiesScript})`
 };
 
 const isGraphSONType = type => ['map', 'set', 'list', 'timestamp', 'date', 'uuid', 'number'].includes(type);
