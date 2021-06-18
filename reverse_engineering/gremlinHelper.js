@@ -611,7 +611,9 @@ const addMetaProperties = (schema, metaProperties) => {
 	});
 }
 
-const handleChoices = dependencies.lodash.flow([handleChoicesInProperties, handleChoicesInItems]);
+const handleChoices = schema => {
+	return dependencies.lodash.flow([handleChoicesInProperties, handleChoicesInItems])(schema);
+}
 
 const submitGraphSONDataScript = query => {
 	return Promise.resolve({
