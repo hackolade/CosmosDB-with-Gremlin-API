@@ -19,6 +19,7 @@
                 "isVirtual":true,
                 "hasMultipleParents":true
             },
+            "enableComplexTypesNormalization": true,
             "graphDB": true,
             "relationships": {
                 "connectOnEntityLevel": true,
