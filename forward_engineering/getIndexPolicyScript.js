@@ -57,8 +57,14 @@ const getPath = (paths = []) => {
 	}).concat(items[items.length - 1]).join('/');
 };
 
+const filterDeactivated = (items) => {
+	return (items || []).filter(item => {
+		return item.isActivated !== false;
+	});
+};
+
 const getIncludedPath = (_) => (includedPaths = []) => {
-	return includedPaths.map(item => {
+	return filterDeactivated(includedPaths).map(item => {
 		return _.flow(
 			add('path', getPath(item.indexIncludedPath)),
 		)({});
@@ -66,7 +72,7 @@ const getIncludedPath = (_) => (includedPaths = []) => {
 };
 
 const getExcludedPath = (_) => (excludedPaths = []) => {
-	return excludedPaths.map(item => {
+	return filterDeactivated(excludedPaths).map(item => {
 		return _.flow(
 			add('path', getPath(item.indexExcludedPath)),
 		)({});
@@ -74,7 +80,7 @@ const getExcludedPath = (_) => (excludedPaths = []) => {
 };
 
 const getCompositeIndexes = (_) => (compositeIndexes = []) => {
-	return compositeIndexes.map(item => {
+	return filterDeactivated(compositeIndexes).map(item => {
 		if (!Array.isArray(item.compositeFieldPath)) {
 			return;
 		}
@@ -91,7 +97,7 @@ const getCompositeIndexes = (_) => (compositeIndexes = []) => {
 };
 
 const getSpatialIndexes = (_) => (spatialIndexes = []) => {
-	return spatialIndexes.map(item => {
+	return filterDeactivated(spatialIndexes).map(item => {
 		return _.flow(
 			add('path', getPath(item.indexIncludedPath)),
 			add('types', (item.dataTypes || []).map(dataType => dataType.spatialType).filter(Boolean)),
