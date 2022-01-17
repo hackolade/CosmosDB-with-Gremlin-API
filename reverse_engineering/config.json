@@ -6,5 +6,6 @@
 	"excludeDocKind": ["id"],
 	"scenario": "getDatabases",
 	"connectionList": [ "name", "gremlinEndpoint" ],
-	"widestColumn": "gremlinEndpoint"
+	"widestColumn": "gremlinEndpoint",
+	"helpUrl": "https://hackolade.com/help/Azureinstance2.html"
 }
