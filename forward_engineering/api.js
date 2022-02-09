@@ -75,9 +75,7 @@ module.exports = {
 				.containers.createIfNotExists({
 					id: graphName,
 					partitionKey: getPartitionKey(_)(data.containerData),
-					...(containerProps.autopilot
-						? { maxThroughput: containerProps.throughput || 400 }
-						: { throughput: containerProps.throughput || 400 }),
+					...applyToInstanceHelper(_).getContainerThroughputProps(containerProps),
 					defaultTtl: applyToInstanceHelper(_).getTTL(containerProps),
 				});
 

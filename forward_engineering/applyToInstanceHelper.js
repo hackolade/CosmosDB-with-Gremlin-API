@@ -152,6 +152,16 @@ const applyToInstanceHelper = _ => ({
 				return -1;
 		}
 	},
+
+	getContainerThroughputProps(containerProps) {
+		if (containerProps.capacityMode === "Serverless") {
+			return {};
+		}
+		if (containerProps.autopilot) {
+			return { maxThroughput: containerProps.throughput || 4000 };
+		}
+		return { throughput: containerProps.throughput || 400 };
+	}
 });
 
 module.exports = applyToInstanceHelper;

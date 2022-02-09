@@ -13,7 +13,8 @@
 		"name": "New graph",
 		"traversalSource": "g",
 		"indexes": [],
-		"autopilot": false
+		"autopilot": false,
+		"capacityMode": "Provisioned throughput"
 	},
 	"collection": {
 		"collectionName": "New vertex",
