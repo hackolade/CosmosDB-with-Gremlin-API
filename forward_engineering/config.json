@@ -18,5 +18,6 @@
 	],
 	"splitView": {
 		"byOptions": true
-	}
+	},
+	"refresh": true
 }
