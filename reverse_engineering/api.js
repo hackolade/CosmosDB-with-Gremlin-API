@@ -269,7 +269,7 @@ const getNodesData = (dbName, labels, logger, data) => {
 						return gremlinHelper.getNodes(labelName, count).then(documents => ({ limit: count, documents }));
 					})
 					.then(({ documents }) => {
-						logger.progress({ message: `Data has successfully got`, containerName: dbName, entityName: labelName });
+						logger.progress({ message: `Data retrieved successfully`, containerName: dbName, entityName: labelName });
 						const packageData = getLabelPackage({
 							dbName,
 							labelName,
