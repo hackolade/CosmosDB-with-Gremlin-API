@@ -1,10 +1,5 @@
-const {
-	CosmosClient,
-	StoredProcedure,
-	UserDefinedFunction,
-	Trigger,
-} = require('../reverse_engineering/node_modules/@azure/cosmos');
-const gremlin = require('../reverse_engineering/node_modules/gremlin');
+const { CosmosClient, StoredProcedure, UserDefinedFunction, Trigger } = require('@azure/cosmos');
+const gremlin = require('gremlin');
 
 const applyToInstanceHelper = _ => ({
 	setUpDocumentClient(connectionInfo) {
