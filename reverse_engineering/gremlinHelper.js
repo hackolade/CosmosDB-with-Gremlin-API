@@ -1,10 +1,10 @@
 const _ = require('lodash');
-let sshTunnel;
 const fs = require('fs');
 const ssh = require('tunnel-ssh');
 const gremlin = require('gremlin');
 const { dependencies } = require('./appDependencies');
 
+let isSshTunnel = false;
 let client;
 let graphName = 'g';
 let defaultCardinality = 'single';
@@ -12,56 +12,28 @@ let database;
 let accountKey;
 let gremlinEndpoint;
 
-const getSshConfig = (info) => {
-	const config = {
-		username: info.ssh_user,
-		host: info.ssh_host,
-		port: info.ssh_port,
-		dstHost: info.host,
-		dstPort: info.port,
-		localHost: '127.0.0.1',
-		localPort: info.port,
-		keepAlive: true
-	};
-
-	if (info.ssh_method === 'privateKey') {
-		return Object.assign({}, config, {
-			privateKey: fs.readFileSync(info.ssh_key_file),
-			passphrase: info.ssh_key_passphrase
-		});
-	} else {
-		return Object.assign({}, config, {
-			password: info.ssh_password
-		});
-	}
-};
-
-const connectViaSsh = (info) => new Promise((resolve, reject) => {
-	ssh(getSshConfig(info), (err, tunnel) => {
-		if (err) {
-			reject(err);
-		} else {
-			resolve({
-				tunnel,
-				info: Object.assign({}, info, {
-					host: '127.0.0.1'
-				})
-			});
-		}
-	});
-});
-
-const connect = info => {
+const connect = async (info, sshService) => {
 	if (info.ssh) {
-		return connectViaSsh(info)
-			.then(({ info, tunnel }) => {
-				sshTunnel = tunnel;
-
-				return connectToInstance(info);
-			});
-	} else {
-		return connectToInstance(info);
+		const { options } = await sshService.openTunnel({
+			sshAuthMethod: info.ssh_method === 'privateKey' ? 'IDENTITY_FILE' : 'USER_PASSWORD',
+			sshTunnelHostname: info.ssh_host,
+			sshTunnelPort: info.ssh_port,
+			sshTunnelUsername: info.ssh_user,
+			sshTunnelPassword: info.ssh_password,
+			sshTunnelIdentityFile: info.ssh_key_file,
+			sshTunnelPassphrase: info.ssh_key_passphrase,
+			host: info.host,
+			port: info.port,
+		});
+		
+		isSshTunnel = true;
+		info = {
+			...info,
+			...options,
+		};
 	}
+
+	return connectToInstance(info);
 };
 
 const connectToInstance = (info) => {
@@ -115,14 +87,15 @@ const testConnection = () => {
 	return client.submit(`${graphName}.V().next()`);
 };
 
-const close = () => {
+const close = async (sshService) => {
 	if (client) {
 		client.close();
 		client = null;
 	}
-	if (sshTunnel) {
-		sshTunnel.close();
-		sshTunnel = null;
+
+	if (isSshTunnel) {
+		await sshService.closeConsumer();
+		isSshTunnel = false;
 	}
 };
 
