@@ -147,7 +147,7 @@ const applyToInstanceHelper = _ => ({
 			case 'On (no default)':
 				return -1;
 			case 'On':
-				return _.parseInt(TTLseconds) || 0;
+				return _.parseInt(containerData.TTLseconds) || 0;
 			default:
 				return -1;
 		}
