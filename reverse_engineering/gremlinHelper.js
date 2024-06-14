@@ -12,7 +12,7 @@ let database;
 let accountKey;
 let gremlinEndpoint;
 
-const getSshConfig = (info) => {
+const getSshConfig = info => {
 	const config = {
 		username: info.ssh_user,
 		host: info.ssh_host,
@@ -21,81 +21,83 @@ const getSshConfig = (info) => {
 		dstPort: info.port,
 		localHost: '127.0.0.1',
 		localPort: info.port,
-		keepAlive: true
+		keepAlive: true,
 	};
 
 	if (info.ssh_method === 'privateKey') {
 		return Object.assign({}, config, {
 			privateKey: fs.readFileSync(info.ssh_key_file),
-			passphrase: info.ssh_key_passphrase
+			passphrase: info.ssh_key_passphrase,
 		});
 	} else {
 		return Object.assign({}, config, {
-			password: info.ssh_password
+			password: info.ssh_password,
 		});
 	}
 };
 
-const connectViaSsh = (info) => new Promise((resolve, reject) => {
-	ssh(getSshConfig(info), (err, tunnel) => {
-		if (err) {
-			reject(err);
-		} else {
-			resolve({
-				tunnel,
-				info: Object.assign({}, info, {
-					host: '127.0.0.1'
-				})
-			});
-		}
+const connectViaSsh = info =>
+	new Promise((resolve, reject) => {
+		ssh(getSshConfig(info), (err, tunnel) => {
+			if (err) {
+				reject(err);
+			} else {
+				resolve({
+					tunnel,
+					info: Object.assign({}, info, {
+						host: '127.0.0.1',
+					}),
+				});
+			}
+		});
 	});
-});
 
 const connect = info => {
 	if (info.ssh) {
-		return connectViaSsh(info)
-			.then(({ info, tunnel }) => {
-				sshTunnel = tunnel;
+		return connectViaSsh(info).then(({ info, tunnel }) => {
+			sshTunnel = tunnel;
 
-				return connectToInstance(info);
-			});
+			return connectToInstance(info);
+		});
 	} else {
 		return connectToInstance(info);
 	}
 };
 
-const connectToInstance = (info) => {
+const connectToInstance = info => {
 	return new Promise((resolve, reject) => {
 		const traversalSource = 'g';
 		const databaseName = info.database || database;
 		const accountKeyString = info.accountKey || accountKey;
 		const gremlinEndpointString = info.gremlinEndpoint || gremlinEndpoint;
-		
+
 		persistConnectionInfo(info);
 
 		const authenticator = new gremlin.driver.auth.PlainTextSaslAuthenticator(
 			`/dbs/${databaseName}/colls/${info.collection}`,
-			accountKeyString
+			accountKeyString,
 		);
-		
+
 		client = new gremlin.driver.Client(gremlinEndpointString, {
 			authenticator,
 			traversalSource,
-			rejectUnauthorized : true,
-        	mimeType : 'application/vnd.gremlin-v2.0+json',
+			rejectUnauthorized: true,
+			mimeType: 'application/vnd.gremlin-v2.0+json',
 		});
 
-		client.open()
+		client
+			.open()
 			.then(res => {
 				graphName = traversalSource;
 				resolve();
-			}).catch(error => {
+			})
+			.catch(error => {
 				reject(error);
 			});
 	});
 };
 
-const persistConnectionInfo = (info) => {
+const persistConnectionInfo = info => {
 	if (info.database) {
 		database = info.database;
 	}
@@ -105,7 +107,7 @@ const persistConnectionInfo = (info) => {
 	if (info.gremlinEndpoint) {
 		gremlinEndpoint = info.gremlinEndpoint;
 	}
-}
+};
 
 const testConnection = () => {
 	if (!client) {
@@ -131,25 +133,30 @@ const getLabels = () => {
 };
 
 const getRelationshipSchema = (labels, limit = 100) => {
-	return Promise.all(labels.map(label => {
-		return client.submit(`${graphName}.V().hasLabel('${label}').outE().limit(${limit}).as('edge').inV().as('end')
-			.select('edge', 'end').by(label).dedup()`)
+	return Promise.all(
+		labels.map(label => {
+			return client
+				.submit(
+					`${graphName}.V().hasLabel('${label}').outE().limit(${limit}).as('edge').inV().as('end')
+			.select('edge', 'end').by(label).dedup()`,
+				)
 				.then(relationshipData => {
 					const relationships = relationshipData.toArray();
 					if (!relationships) {
 						return [];
 					}
-					return relationships.map(relationship =>({
-							start: label,
+					return relationships.map(relationship => ({
+						start: label,
 						relationship: relationship.edge,
-						end: relationship.end
-					}))
-				})
-	}));
+						end: relationship.end,
+					}));
+				});
+		}),
+	);
 };
 
 const getDatabaseName = () => {
-	return Promise.resolve(graphName)
+	return Promise.resolve(graphName);
 };
 
 const getItemProperties = propertiesMap => {
@@ -163,7 +170,7 @@ const getItemProperties = propertiesMap => {
 		const value = _.isArray(rawValue) ? _.first(rawValue) : rawValue;
 
 		if (_.isMap(value)) {
-			return Object.assign(obj, { [key]: handleMap(value) })
+			return Object.assign(obj, { [key]: handleMap(value) });
 		}
 
 		return Object.assign(obj, { [key]: value });
@@ -173,7 +180,7 @@ const getItemProperties = propertiesMap => {
 const handleMap = map => {
 	return Array.from(map).reduce((obj, [key, value]) => {
 		if (dependencies.lodash.isMap(value)) {
-			return Object.assign(obj, { [key]: handleMap(value) })
+			return Object.assign(obj, { [key]: handleMap(value) });
 		}
 
 		return Object.assign(obj, { [key]: value });
@@ -181,87 +188,103 @@ const handleMap = map => {
 };
 
 const getNodes = (label, limit = 100) => {
-	return client.submit(`${graphName}.V().hasLabel('${label}').limit(${limit}).valueMap(true)`).then(res => 
-		res.toArray().map(getItemProperties)
-	)
+	return client
+		.submit(`${graphName}.V().hasLabel('${label}').limit(${limit}).valueMap(true)`)
+		.then(res => res.toArray().map(getItemProperties));
 };
 
 const getRelationshipData = (start, relationship, end, limit = 100) => {
-	return client.submit(`${graphName}.E().hasLabel('${relationship}').where(and(
+	return client
+		.submit(
+			`${graphName}.E().hasLabel('${relationship}').where(and(
 			outV().label().is(eq('${start}')),
 			inV().label().is(eq('${end}')))
-		).limit(${limit}).valueMap(true)`)
-			.then(relationshipData => relationshipData.toArray().map(getItemProperties))
-			.then(documents => ({ documents }))
+		).limit(${limit}).valueMap(true)`,
+		)
+		.then(relationshipData => relationshipData.toArray().map(getItemProperties))
+		.then(documents => ({ documents }));
 };
 
-const getNodesCount = (label) => {
+const getNodesCount = label => {
 	return client.submit(`${graphName}.V().hasLabel('${label}').count()`).then(res => res.first());
 };
 
 const getCountRelationshipsData = (start, relationship, end) => {
-	return client.submit(`${graphName}.E().hasLabel('${relationship}').where(and(
+	return client
+		.submit(
+			`${graphName}.E().hasLabel('${relationship}').where(and(
 		outV().label().is(eq('${start}')),
 		inV().label().is(eq('${end}')))
-	).count()`).then(data => data.toArray());
+	).count()`,
+		)
+		.then(data => data.toArray());
 };
 
 const getIndexes = () => {
 	return Promise.all([
-			client.submit(`graph.getIndexedKeys(Vertex)`),
-			client.submit(`graph.getIndexedKeys(Edge)`)
-		])
-		.then(data => {
-			const vertexIndexesNames = data[0].toArray();
-			const edgeIndexesNames = data[1].toArray();
-			const vertexIndexes = vertexIndexesNames.map(name =>({
-				name,
-				elementType: 'Vertex',
-				propertyName: name
-			}));
-			const edgeIndexes = edgeIndexesNames.map(name =>({
-				name,
-				elementType: 'Edge',
-				propertyName: name
-			}));
+		client.submit(`graph.getIndexedKeys(Vertex)`),
+		client.submit(`graph.getIndexedKeys(Edge)`),
+	]).then(data => {
+		const vertexIndexesNames = data[0].toArray();
+		const edgeIndexesNames = data[1].toArray();
+		const vertexIndexes = vertexIndexesNames.map(name => ({
+			name,
+			elementType: 'Vertex',
+			propertyName: name,
+		}));
+		const edgeIndexes = edgeIndexesNames.map(name => ({
+			name,
+			elementType: 'Edge',
+			propertyName: name,
+		}));
 
-			return vertexIndexes.concat(edgeIndexes);
-		});
+		return vertexIndexes.concat(edgeIndexes);
+	});
 };
 
-const getFeatures = () => client.submit('graph.features()').then(data => {
-	const features = data.first();
-	if (!dependencies.lodash.isString(features)) {
-		return '';
-	}
+const getFeatures = () =>
+	client.submit('graph.features()').then(data => {
+		const features = data.first();
+		if (!dependencies.lodash.isString(features)) {
+			return '';
+		}
 
-	return features.slice('FEATURES '.length);
-});
+		return features.slice('FEATURES '.length);
+	});
 
-const setDefaultCardinality = () => getCardinality('').then(cardinality => {defaultCardinality = cardinality});
+const setDefaultCardinality = () =>
+	getCardinality('').then(cardinality => {
+		defaultCardinality = cardinality;
+	});
 
-const getCardinality = key => client.submit(`graph.features().vertex().getCardinality("${key}")`).then(data => {
-	const values = ['single', 'list', 'set'];
-	const cardinality = data.first();
-	if (!values.includes(cardinality)) {
-		return 'single';
-	}
+const getCardinality = key =>
+	client.submit(`graph.features().vertex().getCardinality("${key}")`).then(
+		data => {
+			const values = ['single', 'list', 'set'];
+			const cardinality = data.first();
+			if (!values.includes(cardinality)) {
+				return 'single';
+			}
 
-	return cardinality;
-}, ()=>defaultCardinality);
+			return cardinality;
+		},
+		() => defaultCardinality,
+	);
 
-const getVariables = () => client.submit('graph.variables().asMap()')
-	.then(data => {
+const getVariables = () =>
+	client.submit('graph.variables().asMap()').then(data => {
 		const variablesMaps = data.toArray();
 		const variables = variablesMaps.map(handleMap);
 		const formattedVariables = variables.map(variableData => {
 			const variable = dependencies.lodash.first(Object.keys(variableData));
 			const variableRawValue = variableData[variable];
-			const variableValue = dependencies.lodash.isString(variableRawValue) ? variableRawValue : JSON.stringify(variableData[variable]);
+			const variableValue = dependencies.lodash.isString(variableRawValue)
+				? variableRawValue
+				: JSON.stringify(variableData[variable]);
 
 			return {
 				graphVariableKey: variable,
-				GraphVariableValue: variableValue
+				GraphVariableValue: variableValue,
 			};
 		});
 
@@ -285,10 +308,10 @@ const convertRootPropertyValue = (cardinality, property) => {
 	return {
 		type: 'multi-property',
 		items: value.map(item => {
-			return Object.assign({}, convertGraphSonToSchema(item), { propCardinality: multiPropertyCardinality })
+			return Object.assign({}, convertGraphSonToSchema(item), { propCardinality: multiPropertyCardinality });
 		}),
-		propCardinality: multiPropertyCardinality
-	}
+		propCardinality: multiPropertyCardinality,
+	};
 };
 
 const isChoice = item => item.oneOf;
@@ -307,18 +330,18 @@ const addSubtype = (choice, subschema) => {
 
 	if (hasSameTypeSubschema) {
 		return Object.assign({}, choice, {
-			oneOf: subschemas
+			oneOf: subschemas,
 		});
 	}
 
 	return Object.assign({}, choice, {
-		oneOf: subschemas.concat(subschema)
+		oneOf: subschemas.concat(subschema),
 	});
 };
 
 const convertToChoice = item => ({
 	type: 'choice',
-	oneOf: [item]
+	oneOf: [item],
 });
 
 const convertRootGraphSON = cardinalityMap => propertiesMap => {
@@ -329,24 +352,29 @@ const convertRootGraphSON = cardinalityMap => propertiesMap => {
 	}
 
 	const properties = propertiesMap['@value'];
-	const { keys, values} = properties.reduce(({keys, values}, property, index) => {
-		if (index % 2) {
-			const cardinality = _.get(cardinalityMap, _.last(keys), defaultCardinality);
-			return { keys, values: [ ...values, convertRootPropertyValue(cardinality, property)] };
-		}
-		
-		if (_.isObject(property)) {
-			return { key, values };
-		}
+	const { keys, values } = properties.reduce(
+		({ keys, values }, property, index) => {
+			if (index % 2) {
+				const cardinality = _.get(cardinalityMap, _.last(keys), defaultCardinality);
+				return { keys, values: [...values, convertRootPropertyValue(cardinality, property)] };
+			}
 
-		return { keys: [ ...keys, property + ''], values };
-	}, { keys: [], values: [] });
+			if (_.isObject(property)) {
+				return { keys, values };
+			}
 
-	return { properties: keys.reduce((properties, key, index) => {
-		return Object.assign({}, properties, {
-			[key]: values[index] || {}
-		});
-	}, {}) };
+			return { keys: [...keys, property + ''], values };
+		},
+		{ keys: [], values: [] },
+	);
+
+	return {
+		properties: keys.reduce((properties, key, index) => {
+			return Object.assign({}, properties, {
+				[key]: values[index] || {},
+			});
+		}, {}),
+	};
 };
 
 const mergeJsonSchemas = schemas => schemas.reduce(mergeSchemas, {});
@@ -357,7 +385,7 @@ const getMergedProperties = (a, b) => {
 	if (_.isEmpty(a.properties) && _.isEmpty(b.properties)) {
 		return {};
 	}
-	
+
 	if (_.isEmpty(a.properties)) {
 		a.properties = {};
 	}
@@ -366,12 +394,12 @@ const getMergedProperties = (a, b) => {
 		b.properties = {};
 	}
 
-	const allPropertiesKeys = _.uniq([ ...Object.keys(a.properties), ...Object.keys(b.properties) ])
+	const allPropertiesKeys = _.uniq([...Object.keys(a.properties), ...Object.keys(b.properties)]);
 	const mergedProperties = allPropertiesKeys.reduce((properties, key) => {
 		const mergedValue = mergeSchemas(a.properties[key], b.properties[key]);
 
 		return Object.assign({}, properties, {
-			[key]: mergedValue
+			[key]: mergedValue,
 		});
 	}, {});
 
@@ -384,7 +412,7 @@ const getMergedItems = (a, b) => {
 	if (_.isEmpty(a.items) && _.isEmpty(b.items)) {
 		return {};
 	}
-	
+
 	if (_.isEmpty(a.items)) {
 		a.items = [];
 	}
@@ -393,14 +421,14 @@ const getMergedItems = (a, b) => {
 		b.items = [];
 	}
 
-	const mergedItems = _.uniqBy(a.items.concat(b.items), 'type')
+	const mergedItems = _.uniqBy(a.items.concat(b.items), 'type');
 
 	return { items: mergedItems };
 };
 
 const isComplexType = field => {
 	const type = field.type;
-	if (!type){
+	if (!type) {
 		return false;
 	}
 
@@ -411,9 +439,9 @@ const mergeTypes = (a, b) => {
 	const _ = dependencies.lodash;
 
 	if (isChoice(a)) {
-		return addSubtype(a, b)
+		return addSubtype(a, b);
 	}
-	
+
 	if (_.isArray(a.type) && !isComplexType(b)) {
 		if (a.type.includes(b.type)) {
 			return a;
@@ -421,7 +449,7 @@ const mergeTypes = (a, b) => {
 
 		return Object.assign({}, a, { type: a.type.concat(b.type) });
 	}
-	
+
 	if (!_.isComplexType(a) && !isComplexType(b)) {
 		return Object.assign({}, a, { type: [a.type, b.type] });
 	}
@@ -429,8 +457,7 @@ const mergeTypes = (a, b) => {
 	const choice = convertToChoice(a);
 
 	return addSubtype(choice, b);
-	
-}
+};
 
 const mergeSchemas = (a, b) => {
 	const _ = dependencies.lodash;
@@ -456,9 +483,9 @@ const handleChoice = (choice, name = '') => ({
 	items: choice.oneOf.map(subschema => ({
 		type: 'subschema',
 		properties: {
-			[name]: subschema
-		}
-	}))
+			[name]: subschema,
+		},
+	})),
 });
 
 const handleChoicesInProperties = schema => {
@@ -470,17 +497,17 @@ const handleChoicesInProperties = schema => {
 		const handledProperty = handleChoices(property);
 		if (!isChoice(property)) {
 			return Object.assign({}, properties, {
-				[key]: handleChoices(handledProperty)
+				[key]: handleChoices(handledProperty),
 			});
 		}
 
 		return Object.assign({}, properties, {
-			[key]: handleChoice(handledProperty, key)
+			[key]: handleChoice(handledProperty, key),
 		});
 	}, {});
 
 	return Object.assign({}, schema, {
-		properties: updatedProperties
+		properties: updatedProperties,
 	});
 };
 
@@ -495,11 +522,11 @@ const handleChoicesInItems = schema => {
 			return handledItem;
 		}
 
-		return handleChoice(handledItem)
+		return handleChoice(handledItem);
 	});
 
 	return Object.assign({}, schema, {
-		items: updatedItems
+		items: updatedItems,
 	});
 };
 
@@ -515,7 +542,7 @@ const convertMetaPropertySample = sample => {
 	}
 
 	return JSON.stringify(sample);
-}
+};
 
 const convertMetaProperty = metaPropertyMap => {
 	const _ = dependencies.lodash;
@@ -530,30 +557,33 @@ const convertMetaProperty = metaPropertyMap => {
 	if (_.get(metaProperty, '@type') !== 'g:Map') {
 		return {};
 	}
-	const { keys, values, samples} = metaProperty['@value'].reduce(({keys, values, samples}, property, index) => {
-		if (index % 2) {
-			return { 
-				keys, 
-				values: [ ...values, convertGraphSonToSchema(property)], 
-				samples: [ ...samples, convertMetaPropertySample(property['@value'])]
-			};
-		}
-		
-		if (_.isObject(property)) {
-			return { key, values, samples };
-		}
+	const { keys, values, samples } = metaProperty['@value'].reduce(
+		({ keys, values, samples }, property, index) => {
+			if (index % 2) {
+				return {
+					keys,
+					values: [...values, convertGraphSonToSchema(property)],
+					samples: [...samples, convertMetaPropertySample(property['@value'])],
+				};
+			}
 
-		return { keys: [ ...keys, property + ''], values, samples };
-	}, { keys: [], values: [], samples: []});
-	
+			if (_.isObject(property)) {
+				return { keys, values, samples };
+			}
+
+			return { keys: [...keys, property + ''], values, samples };
+		},
+		{ keys: [], values: [], samples: [] },
+	);
+
 	const metaPropertiesTypes = values.map(value => value.type);
 	const metaPropertiesData = keys.map((key, index) => ({
 		metaPropName: key,
 		metaPropType: metaPropertiesTypes[index] || 'map',
-		metaPropSample: samples[index]
+		metaPropSample: samples[index],
 	}));
 
-	return { [propertyName]: metaPropertiesData};
+	return { [propertyName]: metaPropertiesData };
 };
 
 const addMetaProperties = (schema, metaProperties) => {
@@ -564,8 +594,8 @@ const addMetaProperties = (schema, metaProperties) => {
 		const metaProperties = Object.keys(propertyData).reduce((result, key) => {
 			const currentMetaProperties = _.get(result, key, []);
 			return Object.assign({}, result, {
-				[key]: currentMetaProperties.concat(propertyData[key])
-			})
+				[key]: currentMetaProperties.concat(propertyData[key]),
+			});
 		}, {});
 
 		return _.merge({}, result, metaProperties);
@@ -576,13 +606,13 @@ const addMetaProperties = (schema, metaProperties) => {
 		if (_.isEmpty(metaPropertyData) || !resultProperties[key]) {
 			return resultProperties;
 		}
-		
+
 		if (resultProperties[key].type !== 'multi-property') {
 			const currentMetaProperties = _.get(resultProperties[key], 'metaProperties', []);
 			return Object.assign({}, resultProperties, {
 				[key]: Object.assign({}, resultProperties[key], {
-					metaProperties: currentMetaProperties.concat(metaPropertyData)
-				})
+					metaProperties: currentMetaProperties.concat(metaPropertyData),
+				}),
 			});
 		}
 
@@ -590,48 +620,49 @@ const addMetaProperties = (schema, metaProperties) => {
 		if (_.isEmpty(multiProperties)) {
 			return resultProperties;
 		}
-		
+
 		const updatedItems = multiProperties.map(property => {
 			const currentMetaProperties = _.get(property, 'metaProperties', []);
 
 			return Object.assign({}, property, {
-				metaProperties: currentMetaProperties.concat(metaPropertyData)
-			})
+				metaProperties: currentMetaProperties.concat(metaPropertyData),
+			});
 		});
 
 		return Object.assign({}, resultProperties, {
 			[key]: Object.assign({}, resultProperties[key], {
-				items: updatedItems
-			})
+				items: updatedItems,
+			}),
 		});
 	}, properties);
-	
+
 	return Object.assign({}, schema, {
-		properties: updatedProperties
+		properties: updatedProperties,
 	});
-}
+};
 
 const handleChoices = schema => {
 	return dependencies.lodash.flow([handleChoicesInProperties, handleChoicesInItems])(schema);
-}
+};
 
 const submitGraphSONDataScript = query => {
 	return Promise.resolve({
-		first: () => ({})
+		first: () => ({}),
 	});
 	// return client.submit(`GraphSONMapper.build().version(GraphSONVersion.V3_0).create().createMapper().writeValueAsString(${query})`);
-}
+};
 
-const getDataQuery = (element, label, limit) => `${graphName}.${element}().hasLabel('${label}').limit(${limit}).valueMap()`;
+const getDataQuery = (element, label, limit) =>
+	`${graphName}.${element}().hasLabel('${label}').limit(${limit}).valueMap()`;
 
-const getMetaPropertiesDataQuery = (label, limit) => 
+const getMetaPropertiesDataQuery = (label, limit) =>
 	`${graphName}.V().hasLabel('${label}').limit(${limit}).properties().as('properties').
 		as('metaProperties').select('properties','metaProperties').by(label).by(valueMap()).dedup()`;
 
 const getMetaPropertiesData = (element, label, limit) => {
 	if (element !== 'V') {
 		return Promise.resolve({
-			first: () => ({})
+			first: () => ({}),
 		});
 	}
 
@@ -639,37 +670,46 @@ const getMetaPropertiesData = (element, label, limit) => {
 };
 
 const getPropertiesCardinality = template => {
-	return setDefaultCardinality()
-		.then(() => {
-			return Promise.all(template.map(key => getCardinality(key).then(cardinality => ({[key]: cardinality}))));
-		});
+	return setDefaultCardinality().then(() => {
+		return Promise.all(template.map(key => getCardinality(key).then(cardinality => ({ [key]: cardinality }))));
+	});
 };
 
 const getSchema = (gremlinElement, documents, label, limit = 100) => {
 	return submitGraphSONDataScript(getDataQuery(gremlinElement, label, limit))
 		.then(schemaData => {
-			return getMetaPropertiesData(gremlinElement, label, limit)
-				.then(metaPropertiesData => {
-					return client.submit(`${graphName}.${gremlinElement}().hasLabel('${label}').limit(${limit}).properties().order().by(id).label().dedup()`)
-						.then(templateData => ({
-							metaProperties: metaPropertiesData.first(),
-							documentsGraphSONSchema: schemaData.first(),
-							template: templateData.toArray()
-						}))
-						.catch(error => ({
-							metaProperties: metaPropertiesData.first(),
-							documentsGraphSONSchema: schemaData.first(),
-							template: []
-						}))
-				});
+			return getMetaPropertiesData(gremlinElement, label, limit).then(metaPropertiesData => {
+				return client
+					.submit(
+						`${graphName}.${gremlinElement}().hasLabel('${label}').limit(${limit}).properties().order().by(id).label().dedup()`,
+					)
+					.then(templateData => ({
+						metaProperties: metaPropertiesData.first(),
+						documentsGraphSONSchema: schemaData.first(),
+						template: templateData.toArray(),
+					}))
+					.catch(error => ({
+						metaProperties: metaPropertiesData.first(),
+						documentsGraphSONSchema: schemaData.first(),
+						template: [],
+					}));
+			});
 		})
 		.then(({ documentsGraphSONSchema, metaProperties, template }) => {
-			return getPropertiesCardinality(template).then(cardinality => { 
-				return { propertiesCardinality: Object.assign({}, ...cardinality), documentsGraphSONSchema, metaProperties, template }
-			}, ()=>({}));
+			return getPropertiesCardinality(template).then(
+				cardinality => {
+					return {
+						propertiesCardinality: Object.assign({}, ...cardinality),
+						documentsGraphSONSchema,
+						metaProperties,
+						template,
+					};
+				},
+				() => ({}),
+			);
 		})
 		.then(({ documentsGraphSONSchema, metaProperties, template, propertiesCardinality }) => {
-			try{
+			try {
 				const documentsSchema = JSON.parse(documentsGraphSONSchema)['@value'];
 				const metaPropertiesMap = JSON.parse(metaProperties)['@value'];
 				const documentsJsonSchemas = documentsSchema.map(convertRootGraphSON(propertiesCardinality));
@@ -677,15 +717,15 @@ const getSchema = (gremlinElement, documents, label, limit = 100) => {
 				const mergedJsonSchema = mergeJsonSchemas(documentsJsonSchemas);
 				const jsonSchemaWithMetaProperties = addMetaProperties(mergedJsonSchema, metaPropertiesByProperty);
 
-				return { documents, schema: handleChoices(jsonSchemaWithMetaProperties), template};
-			} catch(e) {
-				return { documents, schema: {}, template: []};
+				return { documents, schema: handleChoices(jsonSchemaWithMetaProperties), template };
+			} catch (e) {
+				return { documents, schema: {}, template: [] };
 			}
 		});
 };
 
 const getType = rawType => {
-	switch(rawType) {
+	switch (rawType) {
 		case 'g:List':
 			return { type: 'list' };
 		case 'g:Map':
@@ -713,20 +753,23 @@ const getType = rawType => {
 };
 
 const groupPropertiesForMap = properties => {
-	const { keys, values} = properties.reduce(({keys, values}, property, index) => {
-		if (index % 2) {
-			return { keys, values: [ ...values, convertGraphSonToSchema(property)] };
-		}
+	const { keys, values } = properties.reduce(
+		({ keys, values }, property, index) => {
+			if (index % 2) {
+				return { keys, values: [...values, convertGraphSonToSchema(property)] };
+			}
 
-		return { keys: [ ...keys, property + ''], values };
-	}, {
-		keys: [],
-		values: []
-	});
+			return { keys: [...keys, property + ''], values };
+		},
+		{
+			keys: [],
+			values: [],
+		},
+	);
 
 	return keys.reduce((properties, key, index) => {
 		return Object.assign({}, properties, {
-			[key]: values[index] || {}
+			[key]: values[index] || {},
 		});
 	}, {});
 };
@@ -737,7 +780,7 @@ const convertGraphSonToSchema = graphSON => {
 	if (!dependencies.lodash.isPlainObject(graphSON)) {
 		return {
 			type: typeof graphSON,
-			sample: graphSON
+			sample: graphSON,
 		};
 	}
 
@@ -748,45 +791,45 @@ const convertGraphSonToSchema = graphSON => {
 	if (rawType === 'g:Map') {
 		const properties = groupPropertiesForMap(rawProperties);
 
-		return { type, properties }
+		return { type, properties };
 	}
 
 	if (rawType === 'g:List' || rawType === 'g:Set') {
 		const items = getItems(rawProperties);
 
-		return { type, items }
+		return { type, items };
 	}
 
 	if (mode) {
-		return { type, mode, sample: rawProperties }
+		return { type, mode, sample: rawProperties };
 	}
 
 	return { type, sample: rawProperties };
 };
 
-const getSSLConfig = (info) => {
+const getSSLConfig = info => {
 	let config = {
-		rejectUnauthorized: false
+		rejectUnauthorized: false,
 	};
 
-	switch(info.sslType) {
-		case "TRUST_ALL_CERTIFICATES":
-		case "TRUST_SYSTEM_CA_SIGNED_CERTIFICATES":
+	switch (info.sslType) {
+		case 'TRUST_ALL_CERTIFICATES':
+		case 'TRUST_SYSTEM_CA_SIGNED_CERTIFICATES':
 			return config;
-		case "TRUST_CUSTOM_CA_SIGNED_CERTIFICATES": {
+		case 'TRUST_CUSTOM_CA_SIGNED_CERTIFICATES': {
 			const cert = fs.readFileSync(info.certAuthority, 'utf8');
 			config.ca = [cert];
 			return config;
 		}
-		case "TRUST_SERVER_CLIENT_CERTIFICATES": {
+		case 'TRUST_SERVER_CLIENT_CERTIFICATES': {
 			const pfx = fs.readFileSync(info.pfx);
 			const cert = fs.readFileSync(info.certAuthority, 'utf8');
 			config.ca = [cert];
 			config.pfx = pfx;
 			return config;
 		}
-		case "Off":
-		default: 
+		case 'Off':
+		default:
 			return {};
 	}
 };
@@ -805,5 +848,5 @@ module.exports = {
 	getIndexes,
 	getFeatures,
 	getVariables,
-	getSchema
+	getSchema,
 };
