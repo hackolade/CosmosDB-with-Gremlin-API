@@ -49,8 +49,7 @@
         "axios": "1.7.2",
         "gremlin": "3.7.2",
         "lodash": "4.17.21",
-        "qs": "6.12.1",
-        "tunnel-ssh": "github:hackolade/tunnel-ssh"
+        "qs": "6.12.1"
     },
     "lint-staged": {
         "*.{js,json}": "prettier --write"
@@ -78,11 +77,5 @@
         "lint-staged": "14.0.1",
         "prettier": "3.2.5",
         "simple-git-hooks": "2.11.1"
-    },
-    "overrides": {
-        "tunnel-ssh": {
-            "cpu-features": "npm:-@0.0.1",
-            "ssh2": "npm:-@0.0.1"
-        }
     }
 }

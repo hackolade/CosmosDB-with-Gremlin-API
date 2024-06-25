@@ -18,8 +18,9 @@ module.exports = {
 		cb();
 	},
 
-	disconnect: function (connectionInfo, cb) {
-		gremlinHelper.close();
+	disconnect: function (connectionInfo, cb, app) {
+		const sshService = app.require('@hackolade/ssh-service');
+		gremlinHelper.close(sshService);
 		cb();
 	},
 
@@ -61,6 +62,7 @@ module.exports = {
 	},
 
 	getDbCollectionsNames: async function (connectionInfo, logger, cb, app) {
+		const sshService = app.require('@hackolade/ssh-service');
 		try {
 			setDependencies(app);
 			_ = dependencies.lodash;
@@ -82,7 +84,7 @@ module.exports = {
 			);
 			const result = await collections.reduce(async (acc, collection) => {
 				const res = await acc;
-				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id });
+				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id }, sshService);
 				logger.log('info', '', 'Connected to the Gremlin API', connectionInfo.hiddenKeys);
 				let collectionLabels;
 				try {
@@ -93,7 +95,7 @@ module.exports = {
 						'Collection labels list',
 						connectionInfo.hiddenKeys,
 					);
-					gremlinHelper.close();
+					gremlinHelper.close(sshService);
 				} catch (err) {
 					if (err.message?.includes('NullReferenceException')) {
 						logger.log(
@@ -102,7 +104,7 @@ module.exports = {
 							'Skipping document collection',
 							connectionInfo.hiddenKeys,
 						);
-						gremlinHelper.close();
+						gremlinHelper.close(sshService);
 						return res;
 					} else {
 						throw err;
@@ -126,6 +128,8 @@ module.exports = {
 	},
 
 	getDbCollectionsData: async function (data, logger, cb, app) {
+		const sshService = app.require('@hackolade/ssh-service');
+
 		try {
 			setDependencies(app);
 			_ = dependencies.lodash;
@@ -181,7 +185,7 @@ module.exports = {
 					);
 
 					logger.log('info', { collection: collectionName }, 'Getting container nodes data', data.hiddenKeys);
-					await gremlinHelper.connect({ collection: collectionName });
+					await gremlinHelper.connect({ collection: collectionName }, sshService);
 					const nodesData = await getNodesData(collectionName, labels, logger, {
 						recordSamplingSettings,
 						fieldInference,
@@ -212,7 +216,7 @@ module.exports = {
 						fieldInference,
 					);
 					packages.relationships.push(relationshipData);
-					gremlinHelper.close();
+					gremlinHelper.close(sshService);
 
 					return packages;
 				},
@@ -224,7 +228,7 @@ module.exports = {
 
 			cb(null, packages.labels, modelInfo, [].concat.apply([], packages.relationships));
 		} catch (err) {
-			gremlinHelper.close();
+			gremlinHelper.close(sshService);
 			logger.log('error', mapError(err), 'Error');
 			cb(mapError(err));
 		}
