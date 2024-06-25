@@ -45,11 +45,11 @@
     "disabled": false,
     "dependencies": {
         "@azure/cosmos": "3.9.2",
-        "async": "2.6.0",
-        "axios": "0.21.4",
-        "gremlin": "3.4.3",
+        "async": "2.6.4",
+        "axios": "1.7.2",
+        "gremlin": "3.7.2",
         "lodash": "4.17.21",
-        "qs": "6.9.4"
+        "qs": "6.12.1"
     },
     "lint-staged": {
         "*.{js,json}": "prettier --write"

@@ -89,7 +89,7 @@ const testConnection = () => {
 	return client.submit(`${graphName}.V().next()`);
 };
 
-const close = async (sshService) => {
+const close = async sshService => {
 	if (client) {
 		client.close();
 		client = null;
