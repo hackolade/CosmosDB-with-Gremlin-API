@@ -1,33 +1,32 @@
-const { CosmosClient, StoredProcedure, UserDefinedFunction, Trigger } = require('../reverse_engineering/node_modules/@azure/cosmos');
-const gremlin = require('../reverse_engineering/node_modules/gremlin');
-
+const { CosmosClient, StoredProcedure, UserDefinedFunction, Trigger } = require('@azure/cosmos');
+const gremlin = require('gremlin');
 
 const applyToInstanceHelper = _ => ({
 	setUpDocumentClient(connectionInfo) {
 		const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
 		const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint);
-		if(!dbName || !dbName[1]) {
+		if (!dbName || !dbName[1]) {
 			throw new Error('Incorrect endpoint provided. Expected format: wss://<account name>.gremlin.cosmos.');
 		}
 		const endpoint = `https://${dbName[1]}.documents.azure.com:443/`;
 		const key = connectionInfo.accountKey;
-	
+
 		return new CosmosClient({ endpoint, key });
 	},
 
 	async getGremlinClient(connectionInfo, databaseId, collection) {
 		const traversalSource = 'g';
-		
+
 		const authenticator = new gremlin.driver.auth.PlainTextSaslAuthenticator(
 			`/dbs/${databaseId}/colls/${collection}`,
-			connectionInfo.accountKey
+			connectionInfo.accountKey,
 		);
-		
+
 		const client = new gremlin.driver.Client(connectionInfo.gremlinEndpoint, {
 			authenticator,
 			traversalSource,
-			rejectUnauthorized : true,
-			mimeType : 'application/vnd.gremlin-v2.0+json',
+			rejectUnauthorized: true,
+			mimeType: 'application/vnd.gremlin-v2.0+json',
 		});
 
 		await client.open();
@@ -35,9 +34,11 @@ const applyToInstanceHelper = _ => ({
 	},
 
 	runGremlinQueries(gremlinClient, queries) {
-		return Promise.all(queries.map(query => {
-			return gremlinClient.submit(query);
-		}));
+		return Promise.all(
+			queries.map(query => {
+				return gremlinClient.submit(query);
+			}),
+		);
 	},
 
 	testConnection(client) {
@@ -47,7 +48,6 @@ const applyToInstanceHelper = _ => ({
 	async getDatabases(client) {
 		const dbResponse = await client.databases.readAll().fetchAll();
 		return dbResponse.resources;
-	
 	},
 
 	async getContainers(databaseId, client) {
@@ -86,7 +86,7 @@ const applyToInstanceHelper = _ => ({
 				id: trigger.triggerID,
 				body: trigger.triggerFunction,
 				triggerOperation: trigger.triggerOperation,
-				triggerType: trigger.prePostTrigger === 'Pre-Trigger' ? 'Pre' : 'Post'
+				triggerType: trigger.prePostTrigger === 'Pre-Trigger' ? 'Pre' : 'Post',
 			};
 		});
 	},
@@ -147,21 +147,21 @@ const applyToInstanceHelper = _ => ({
 			case 'On (no default)':
 				return -1;
 			case 'On':
-				return _.parseInt(TTLseconds) || 0;
+				return _.parseInt(containerData.TTLseconds) || 0;
 			default:
 				return -1;
 		}
 	},
 
 	getContainerThroughputProps(containerProps) {
-		if (containerProps.capacityMode === "Serverless") {
+		if (containerProps.capacityMode === 'Serverless') {
 			return {};
 		}
 		if (containerProps.autopilot) {
 			return { maxThroughput: containerProps.throughput || 4000 };
 		}
 		return { throughput: containerProps.throughput || 400 };
-	}
+	},
 });
 
 module.exports = applyToInstanceHelper;

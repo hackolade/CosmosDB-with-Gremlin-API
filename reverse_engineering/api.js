@@ -196,11 +196,17 @@ module.exports = {
 					});
 					let relationships = [];
 					packages.labels.push(nodesData);
-					const labelNames = nodesData.reduce((result, packageData) => result.concat([packageData.collectionName]), []);
+					const labelNames = nodesData.reduce(
+						(result, packageData) => result.concat([packageData.collectionName]),
+						[],
+					);
 					const labelsRelationships = await gremlinHelper.getRelationshipSchema(labelNames);
 					labelsRelationships.forEach(labelRelationships =>
 						labelRelationships
-							.filter(relationship => labelNames.includes(relationship.start) && labelNames.includes(relationship.end))
+							.filter(
+								relationship =>
+									labelNames.includes(relationship.start) && labelNames.includes(relationship.end),
+							)
 							.forEach(relationship => relationships.push(relationship)),
 					);
 					const relationshipData = await getRelationshipData(
@@ -267,13 +273,23 @@ const getNodesData = (dbName, labels, logger, data) => {
 				gremlinHelper
 					.getNodesCount(labelName)
 					.then(quantity => {
-						logger.progress({ message: 'Start getting data from graph', containerName: dbName, entityName: labelName });
+						logger.progress({
+							message: 'Start getting data from graph',
+							containerName: dbName,
+							entityName: labelName,
+						});
 						const count = getSampleDocSize(quantity, data.recordSamplingSettings);
 
-						return gremlinHelper.getNodes(labelName, count).then(documents => ({ limit: count, documents }));
+						return gremlinHelper
+							.getNodes(labelName, count)
+							.then(documents => ({ limit: count, documents }));
 					})
 					.then(({ documents }) => {
-						logger.progress({ message: `Data retrieved successfully`, containerName: dbName, entityName: labelName });
+						logger.progress({
+							message: `Data retrieved successfully`,
+							containerName: dbName,
+							entityName: labelName,
+						});
 						const packageData = getLabelPackage({
 							dbName,
 							labelName,
@@ -637,12 +653,14 @@ async function getAdditionalAccountInfo(connectionInfo, logger) {
 			),
 			ipRangeFilter: accountData.properties.ipRangeFilter,
 			tags: Object.entries(accountData.tags).map(([tagName, tagValue]) => ({ tagName, tagValue })),
-			locations: accountData.properties.locations.map(({ id, locationName, failoverPriority, isZoneRedundant }) => ({
-				locationId: id,
-				locationName,
-				failoverPriority,
-				isZoneRedundant,
-			})),
+			locations: accountData.properties.locations.map(
+				({ id, locationName, failoverPriority, isZoneRedundant }) => ({
+					locationId: id,
+					locationName,
+					failoverPriority,
+					isZoneRedundant,
+				}),
+			),
 		};
 	} catch (err) {
 		logger.log('error', { message: _.get(err, 'response.data.error.message', err.message), stack: err.stack });

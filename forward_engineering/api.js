@@ -20,14 +20,14 @@ module.exports = {
 					},
 					{
 						script: getCosmosDbScript(_, data.containerData),
-					}
+					},
 				]);
 			} else if (scriptId === 'cosmosdb') {
 				cb(null, getCosmosDbScript(_, data.containerData));
 			} else {
 				cb(null, getGremlinScript(_, data));
 			}
-		} catch(e) {
+		} catch (e) {
 			logger.log('error', { message: e.message, stack: e.stack }, 'Forward-Engineering Error');
 			setTimeout(() => {
 				cb({ message: e.message, stack: e.stack });
@@ -47,16 +47,16 @@ module.exports = {
 			}
 
 			if (!data.containerData) {
-				return cb({ message: 'Graph wasn\'t specified' });
+				return cb({ message: "Graph wasn't specified" });
 			}
 			const targetScriptOptions = data.targetScriptOptions || {};
 			const containerProps = _.get(data.containerData, '[0]', {});
 			if (!containerProps.dbId) {
-				return cb({ message: 'Database id wasn\'t specified' });
+				return cb({ message: "Database id wasn't specified" });
 			}
 			const graphName = containerProps.code || containerProps.name;
 			if (!graphName) {
-				return cb({ message: 'Graph name wasn\'t specified' });
+				return cb({ message: "Graph name wasn't specified" });
 			}
 			const progress = createLogger(logger, containerProps.dbId, graphName);
 
@@ -65,19 +65,17 @@ module.exports = {
 			progress('Create database if not exists ...');
 
 			await cosmosClient.databases.createIfNotExists({
-				id: containerProps.dbId
+				id: containerProps.dbId,
 			});
 
 			progress('Create container if not exists ...');
 
-			const containerResponse = await cosmosClient
-				.database(containerProps.dbId)
-				.containers.createIfNotExists({
-					id: graphName,
-					partitionKey: getPartitionKey(_)(data.containerData),
-					...applyToInstanceHelper(_).getContainerThroughputProps(containerProps),
-					defaultTtl: applyToInstanceHelper(_).getTTL(containerProps),
-				});
+			const containerResponse = await cosmosClient.database(containerProps.dbId).containers.createIfNotExists({
+				id: graphName,
+				partitionKey: getPartitionKey(_)(data.containerData),
+				...applyToInstanceHelper(_).getContainerThroughputProps(containerProps),
+				defaultTtl: applyToInstanceHelper(_).getTTL(containerProps),
+			});
 
 			progress('Applying Cosmos DB script ...');
 			const splittedScript = data.script.split('\n');
@@ -124,15 +122,15 @@ module.exports = {
 			const gremlinClient = await applyToInstanceHelper(_).getGremlinClient(data, containerProps.dbId, graphName);
 
 			progress('Uploading labels ...');
-			
+
 			await applyToInstanceHelper(_).runGremlinQueries(gremlinClient, labels);
-			
+
 			progress('Uploading edges ...');
 
 			await applyToInstanceHelper(_).runGremlinQueries(gremlinClient, edges);
-			
+
 			cb();
-		} catch(err) {
+		} catch (err) {
 			logger.log('error', mapError(err));
 			cb(mapError(err));
 		}
@@ -146,11 +144,11 @@ module.exports = {
 			const client = applyToInstanceHelper(_).setUpDocumentClient(connectionInfo);
 			await applyToInstanceHelper(_).testConnection(client);
 			return cb();
-		} catch(err) {
+		} catch (err) {
 			logger.log('error', mapError(err), 'Connection failed');
 			return cb(mapError(err));
 		}
-	}
+	},
 };
 
 const getGremlinScript = (_, data) => {
@@ -160,9 +158,9 @@ const getGremlinScript = (_, data) => {
 	graphName = transformToValidGremlinName(traversalSource);
 	collections = collections.map(JSON.parse);
 	relationships = relationships.map(JSON.parse);
-	const indexesData = _.get(containerData, [1, 'indexes'], [])
+	const indexesData = _.get(containerData, [1, 'indexes'], []);
 
-	const variables = _.get(containerData, [0, 'graphVariables'], [])
+	const variables = _.get(containerData, [0, 'graphVariables'], []);
 	const variablesScript = generateVariables(variables);
 	const verticesScript = generateVertices(collections, jsonData);
 	const edgesScript = generateEdges(collections, relationships, jsonData);
@@ -195,21 +193,21 @@ const getCosmosDbScript = (_, containerData) => {
 			...scriptHelper.addItems(_)(containerData),
 		},
 		null,
-		2
+		2,
 	);
 
 	return script;
 };
 
-const getPartitionKey = (_) => (containerData) => {
+const getPartitionKey = _ => containerData => {
 	const partitionKey = _.get(containerData, '[0].partitionKey[0].name', '').trim().replace(/\/$/, '');
 
 	return partitionKey;
 };
 
-const updateIndexingPolicy = (indexes) => {
-	const result = {...indexes};
-	
+const updateIndexingPolicy = indexes => {
+	const result = { ...indexes };
+
 	if (Array.isArray(result.includedPaths)) {
 		result.includedPaths = addDataType(result.includedPaths);
 	}
@@ -225,7 +223,7 @@ const updateIndexingPolicy = (indexes) => {
 	return result;
 };
 
-const addDataType = (indexes) => {
+const addDataType = indexes => {
 	return indexes.map(index => {
 		if (!Array.isArray(index.indexes)) {
 			return index;
@@ -241,23 +239,18 @@ const addDataType = (indexes) => {
 	});
 };
 
-const addSpatialTypes = (spatialIndex) => {
+const addSpatialTypes = spatialIndex => {
 	if (Array.isArray(spatialIndex.types) && spatialIndex.types.length) {
 		return spatialIndex;
 	}
-	
+
 	return {
 		...spatialIndex,
-		types: [
-			"Point",
-			"LineString",
-			"Polygon",
-			"MultiPolygon"
-		]
+		types: ['Point', 'LineString', 'Polygon', 'MultiPolygon'],
 	};
 };
 
-const createLogger = (logger, containerName, entityName) => (message) => {
+const createLogger = (logger, containerName, entityName) => message => {
 	logger.progress({ message, containerName, entityName });
 	logger.log('info', { message }, 'Applying to instance');
 };
@@ -277,7 +270,7 @@ const generateVariables = variables => {
 
 			return script + `graph.variables().set("${key}", "${value}");\n`;
 		} catch (e) {
-			return script + `graph.variables().set("${key}", "${value}");\n`
+			return script + `graph.variables().set("${key}", "${value}");\n`;
 		}
 	}, '');
 };
@@ -293,8 +286,8 @@ const generateVertices = (collections, jsonData) => {
 	const vertices = collections.map(collection => {
 		const vertexData = JSON.parse(jsonData[collection.GUID]);
 
-		return generateVertex(collection, vertexData)
-	});	
+		return generateVertex(collection, vertexData);
+	});
 
 	const script = vertices.join(';\n\n');
 	if (!script) {
@@ -302,7 +295,7 @@ const generateVertices = (collections, jsonData) => {
 	}
 
 	return script + ';';
-}
+};
 
 const generateEdge = (from, to, relationship, edgeData) => {
 	const edgeName = transformToValidGremlinName(relationship.name);
@@ -324,7 +317,9 @@ const generateEdges = (collections, relationships, jsonData) => {
 		const to = transformToValidGremlinName(childCollection.collectionName);
 		const edgeData = JSON.parse(jsonData[relationship.GUID]);
 
-		return edges.concat(generateEdge(getVertexVariableScript(from), getVertexVariableScript(to), relationship, edgeData));
+		return edges.concat(
+			generateEdge(getVertexVariableScript(from), getVertexVariableScript(to), relationship, edgeData),
+		);
 	}, []);
 
 	if (_.isEmpty(edges)) {
@@ -332,11 +327,12 @@ const generateEdges = (collections, relationships, jsonData) => {
 	}
 
 	return edges.join(';\n\n') + ';';
-}
+};
 
 const getDefaultMetaPropertyValue = type => {
-	switch(type) {
-		case 'map': case 'list':
+	switch (type) {
+		case 'map':
+		case 'list':
 			return '[]';
 		case 'set':
 			return '[].toSet()';
@@ -358,7 +354,7 @@ const getDefaultMetaPropertyValue = type => {
 };
 
 const handleMetaProperties = metaProperties => {
-	if (!metaProperties){
+	if (!metaProperties) {
 		return '';
 	}
 
@@ -367,12 +363,11 @@ const handleMetaProperties = metaProperties => {
 			return list;
 		}
 
-		const sample = _.isUndefined(property.metaPropSample) ? getDefaultMetaPropertyValue(property.metaPropType) : property.metaPropSample;
+		const sample = _.isUndefined(property.metaPropSample)
+			? getDefaultMetaPropertyValue(property.metaPropType)
+			: property.metaPropSample;
 
-		return list.concat(
-			JSON.stringify(property.metaPropName), 
-			sample
-		);
+		return list.concat(JSON.stringify(property.metaPropName), sample);
 	}, []);
 
 	return metaPropertiesFlatList.join(', ');
@@ -384,13 +379,15 @@ const handleMultiProperty = (property, name, jsonData) => {
 		properties = [properties];
 	}
 	if (properties.length === 1) {
-		properties = [ ...properties, ...properties];
+		properties = [...properties, ...properties];
 		jsonData.push(_.first(jsonData));
 	}
 
 	const type = property.childType || property.type;
 	const nameString = JSON.stringify(name);
-	const propertiesValues = properties.map((property, index) => convertPropertyValue(property, 2, type, jsonData[index]));
+	const propertiesValues = properties.map((property, index) =>
+		convertPropertyValue(property, 2, type, jsonData[index]),
+	);
 	const metaProperties = properties.map(property => {
 		const metaPropertiesScript = handleMetaProperties(property.metaProperties);
 		if (_.isEmpty(metaPropertiesScript)) {
@@ -400,9 +397,11 @@ const handleMultiProperty = (property, name, jsonData) => {
 		return ', ' + metaPropertiesScript;
 	});
 
-	return propertiesValues.reduce((script, valueScript, index) => 
-		`${script}.\n${DEFAULT_INDENT}property(single, ${nameString}, ${valueScript}${metaProperties[index]})`
-	, '');
+	return propertiesValues.reduce(
+		(script, valueScript, index) =>
+			`${script}.\n${DEFAULT_INDENT}property(single, ${nameString}, ${valueScript}${metaProperties[index]})`,
+		'',
+	);
 };
 
 const getChoices = item => {
@@ -418,10 +417,10 @@ const getChoices = item => {
 			[choiceType]: {
 				choice: _.get(item, choiceType, []),
 				meta: _.get(item, `${choiceType}_meta`, {}),
-			}
+			},
 		});
 	}, {});
-	
+
 	if (_.isEmpty(choices)) {
 		return [];
 	}
@@ -432,7 +431,7 @@ const getChoices = item => {
 
 		return {
 			properties: _.first(choiceData.choice).properties || {},
-			index
+			index,
 		};
 	});
 
@@ -453,7 +452,7 @@ const getChoices = item => {
 
 		return {
 			properties: choiceData.properties,
-			index: choiceData.index + additionalPropertiesCount
+			index: choiceData.index + additionalPropertiesCount,
 		};
 	});
 };
@@ -462,7 +461,7 @@ const resolveArrayChoices = (choices, items) => {
 	if (_.isEmpty(choices)) {
 		return items;
 	}
-	
+
 	const choiceItems = choices.reduce((choiceItems, choice) => {
 		const choiceProperties = _.get(choice, 'properties', {});
 
@@ -484,22 +483,19 @@ const resolveChoices = (choices, properties) => {
 			return choiceProperties;
 		}
 
-		if (
-			_.isUndefined(choicePropertiesIndex) ||
-			Object.keys(sortedProperties).length <= choicePropertiesIndex
-		) {
+		if (_.isUndefined(choicePropertiesIndex) || Object.keys(sortedProperties).length <= choicePropertiesIndex) {
 			return Object.assign({}, sortedProperties, choiceProperties);
 		}
 
 		return Object.keys(sortedProperties).reduce((result, propertyKey, index) => {
 			if (index !== choicePropertiesIndex) {
 				return Object.assign({}, result, {
-					[propertyKey] : sortedProperties[propertyKey]
+					[propertyKey]: sortedProperties[propertyKey],
 				});
 			}
 
 			return Object.assign({}, result, choiceProperties, {
-				[propertyKey] : sortedProperties[propertyKey]
+				[propertyKey]: sortedProperties[propertyKey],
 			});
 		}, {});
 	}, properties || {});
@@ -547,7 +543,6 @@ const addPropertiesScript = (collection, vertexData) => {
 			return listValues.reduce((script, valueScript) => {
 				return script + getPropertyStatement(name, 'list', valueScript, metaPropertiesScript);
 			}, script);
-
 		}
 		const valueScript = convertPropertyValue(property, 2, type, vertexData[name]);
 
@@ -556,8 +551,8 @@ const addPropertiesScript = (collection, vertexData) => {
 };
 
 const getPropertyStatement = (name, propCardinality, valueScript, metaPropertiesScript) => {
-	const cardinality = propCardinality === 'single' ? '' : propCardinality + ', '; 
-	return `.\n${DEFAULT_INDENT}property(${cardinality}${JSON.stringify(name)}, ${valueScript}${metaPropertiesScript})`
+	const cardinality = propCardinality === 'single' ? '' : propCardinality + ', ';
+	return `.\n${DEFAULT_INDENT}property(${cardinality}${JSON.stringify(name)}, ${valueScript}${metaPropertiesScript})`;
 };
 
 const isGraphSONType = type => ['map', 'set', 'list', 'timestamp', 'date', 'uuid', 'number'].includes(type);
@@ -568,16 +563,19 @@ const convertMap = (property, level, value) => {
 
 	const childProperties = Object.keys(properties).map(name => ({
 		name,
-		property: properties[name]
+		property: properties[name],
 	}));
 	const indent = _.range(0, level).reduce(indent => indent + DEFAULT_INDENT, '');
 	const previousIndent = _.range(0, level - 1).reduce(indent => indent + DEFAULT_INDENT, '');
 
-	let mapValue = childProperties.reduce((result, {name, property}) => {
+	let mapValue = childProperties.reduce((result, { name, property }) => {
 		const childValue = value[name];
 		const type = property.childType || property.type;
 
-		return result + `, \n${indent}${JSON.stringify(name)}: ${convertPropertyValue(property, level + 1, type, childValue)}`;
+		return (
+			result +
+			`, \n${indent}${JSON.stringify(name)}: ${convertPropertyValue(property, level + 1, type, childValue)}`
+		);
 	}, '');
 
 	if (mapValue.slice(0, 2) === ', ') {
@@ -604,7 +602,7 @@ const convertList = (property, level, value) => {
 	}, '');
 
 	if (listValue.slice(0, 2) === ', ') {
-		listValue = listValue.slice(2)
+		listValue = listValue.slice(2);
 	}
 
 	return `[${listValue}]`;
@@ -618,7 +616,8 @@ const convertSet = (property, level, value) => {
 
 const convertTimestamp = value => `new java.sql.Timestamp(${JSON.stringify(value)})`;
 
-const convertDate = value => `new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX").parse(${JSON.stringify(value)})`;
+const convertDate = value =>
+	`new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSX").parse(${JSON.stringify(value)})`;
 
 const convertUUID = value => `UUID.fromString(${JSON.stringify(value)})`;
 
@@ -626,7 +625,7 @@ const convertNumber = (property, value) => {
 	const mode = property.mode;
 	const numberValue = JSON.stringify(value);
 
-	switch(mode) {
+	switch (mode) {
 		case 'double':
 			return `${numberValue}d`;
 		case 'float':
@@ -643,7 +642,7 @@ const convertPropertyValue = (property, level, type, value) => {
 		return JSON.stringify(value);
 	}
 
-	switch(type) {
+	switch (type) {
 		case 'uuid':
 			return convertUUID(value);
 		case 'map':
@@ -681,7 +680,8 @@ const transformToValidGremlinName = name => {
 	return nameWithoutSpecialCharacters;
 };
 
-const generateIndex = indexData => `graph.createIndex("${indexData.propertyName}", ${indexData.elementType || 'Vertex'})`;
+const generateIndex = indexData =>
+	`graph.createIndex("${indexData.propertyName}", ${indexData.elementType || 'Vertex'})`;
 
 const generateIndexes = indexesData => {
 	const correctIndexes = indexesData.filter(index => index.propertyName);
@@ -694,9 +694,9 @@ const generateIndexes = indexesData => {
 	return script + ';';
 };
 
-const mapError = (error) => {
+const mapError = error => {
 	return {
 		message: error.message,
-		stack: error.stack
+		stack: error.stack,
 	};
 };
