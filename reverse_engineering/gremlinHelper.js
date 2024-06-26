@@ -1,6 +1,5 @@
 const _ = require('lodash');
 const fs = require('fs');
-const ssh = require('tunnel-ssh');
 const gremlin = require('gremlin');
 const { dependencies } = require('./appDependencies');
 
