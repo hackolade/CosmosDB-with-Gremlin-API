@@ -18,7 +18,7 @@ module.exports = {
 		cb();
 	},
 
-	disconnect: function (connectionInfo, cb, app) {
+	disconnect: function (connectionInfo, logger, cb, app) {
 		const sshService = app.require('@hackolade/ssh-service');
 		gremlinHelper.close(sshService);
 		cb();
