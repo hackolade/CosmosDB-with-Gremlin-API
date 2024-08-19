@@ -19,6 +19,7 @@
                 "hasMultipleParents": true
             },
             "enableComplexTypesNormalization": true,
+            "requireComplexTypesNormalization": true,
             "graphDB": true,
             "relationships": {
                 "connectOnEntityLevel": true,
