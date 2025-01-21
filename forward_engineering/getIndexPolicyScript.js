@@ -45,7 +45,7 @@ const getPath = (paths = []) => {
 	return items
 		.slice(0, -1)
 		.map(name => {
-			if (/^"/.test(name) && /"$/.test(name)) {
+			if (name.startsWith('"') && name.endsWith('"')) {
 				return name;
 			}
 
@@ -121,7 +121,7 @@ const getSpatialIndexes =
 const getIndexPolicyScript = _ => containerData => {
 	const indexTab = containerData[1] || {};
 
-	const indexScript = _.flow(
+	return _.flow(
 		add('automatic', indexTab.indexingAutomatic === 'true'),
 		add('indexingMode', indexTab.indexingMode),
 		add('includedPaths', getIncludedPath(_)(indexTab.includedPaths)),
@@ -129,8 +129,6 @@ const getIndexPolicyScript = _ => containerData => {
 		add('spatialIndexes', getSpatialIndexes(_)(indexTab.spatialIndexes)),
 		add('compositeIndexes', getCompositeIndexes(_)(indexTab.compositeIndexes)),
 	)({});
-
-	return indexScript;
 };
 
 module.exports = getIndexPolicyScript;

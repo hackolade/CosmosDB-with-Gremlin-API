@@ -5,7 +5,7 @@ const applyToInstanceHelper = _ => ({
 	setUpDocumentClient(connectionInfo) {
 		const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
 		const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint);
-		if (!dbName || !dbName[1]) {
+		if (!dbName?.[1]) {
 			throw new Error('Incorrect endpoint provided. Expected format: wss://<account name>.gremlin.cosmos.');
 		}
 		const endpoint = `https://${dbName[1]}.documents.azure.com:443/`;
