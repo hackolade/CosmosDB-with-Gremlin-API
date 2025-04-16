@@ -27,12 +27,15 @@ const connectToInstance = info => {
 			accountKeyString,
 		);
 
-		client = new gremlin.driver.Client(gremlinEndpointString, {
-			authenticator,
-			traversalSource,
-			rejectUnauthorized: true,
-			mimeType: 'application/vnd.gremlin-v2.0+json',
-		});
+		client = new gremlin.driver.Client(
+			`wss://${gremlinEndpointString.replaceAll('wss://', '').replaceAll(':443', '')}`,
+			{
+				authenticator,
+				traversalSource,
+				rejectUnauthorized: true,
+				mimeType: 'application/vnd.gremlin-v2.0+json',
+			},
+		);
 
 		client
 			.open()

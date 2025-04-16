@@ -1,7 +1,8 @@
 const { CosmosClient, StoredProcedure, UserDefinedFunction, Trigger } = require('@azure/cosmos');
 const gremlin = require('gremlin');
+const _ = require('lodash');
 
-const applyToInstanceHelper = _ => ({
+const applyToInstanceHelper = () => ({
 	setUpDocumentClient(connectionInfo) {
 		const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
 		const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint);

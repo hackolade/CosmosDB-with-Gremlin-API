@@ -15,8 +15,6 @@ module.exports = {
 	},
 
 	disconnect: function (connectionInfo, logger, cb, app) {
-		const sshService = app.require('@hackolade/ssh-service');
-		gremlinHelper.close(sshService);
 		cb();
 	},
 
@@ -54,7 +52,6 @@ module.exports = {
 	},
 
 	getDbCollectionsNames: async function (connectionInfo, logger, cb, app) {
-		const sshService = app.require('@hackolade/ssh-service');
 		try {
 			client = setUpDocumentClient(connectionInfo);
 			logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
@@ -74,7 +71,7 @@ module.exports = {
 			);
 			const result = await collections.reduce(async (acc, collection) => {
 				const res = await acc;
-				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id }, sshService);
+				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id });
 				logger.log('info', '', 'Connected to the Gremlin API', connectionInfo.hiddenKeys);
 				let collectionLabels;
 				try {
@@ -85,7 +82,7 @@ module.exports = {
 						'Collection labels list',
 						connectionInfo.hiddenKeys,
 					);
-					gremlinHelper.close(sshService);
+					gremlinHelper.close();
 				} catch (err) {
 					if (err.message?.includes('NullReferenceException')) {
 						logger.log(
@@ -94,7 +91,7 @@ module.exports = {
 							'Skipping document collection',
 							connectionInfo.hiddenKeys,
 						);
-						gremlinHelper.close(sshService);
+						gremlinHelper.close();
 						return res;
 					} else {
 						throw err;
@@ -118,8 +115,6 @@ module.exports = {
 	},
 
 	getDbCollectionsData: async function (data, logger, cb, app) {
-		const sshService = app.require('@hackolade/ssh-service');
-
 		try {
 			logger.clear();
 			logger.log('info', data, 'connectionInfo', data.hiddenKeys);
@@ -171,7 +166,7 @@ module.exports = {
 					};
 
 					logger.log('info', { collection: collectionName }, 'Getting container nodes data', data.hiddenKeys);
-					await gremlinHelper.connect({ collection: collectionName }, sshService);
+					await gremlinHelper.connect({ collection: collectionName });
 					const nodesData = await getNodesData(collectionName, labels, logger, {
 						recordSamplingSettings,
 						fieldInference,
@@ -202,7 +197,7 @@ module.exports = {
 						fieldInference,
 					);
 					packages.relationships.push(relationshipData);
-					gremlinHelper.close(sshService);
+					gremlinHelper.close();
 
 					return packages;
 				},
@@ -214,7 +209,7 @@ module.exports = {
 
 			cb(null, packages.labels, modelInfo, [].concat(...packages.relationships));
 		} catch (err) {
-			gremlinHelper.close(sshService);
+			gremlinHelper.close();
 			logger.log('error', mapError(err), 'Error');
 			cb(mapError(err));
 		}
@@ -447,12 +442,12 @@ function createSchemaByPartitionKeyPath(path, documents = []) {
 }
 
 const setUpDocumentClient = connectionInfo => {
-	const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
+	const dbNameRegExp = /(\S*).gremlin\.cosmos\.azure.com/i;
 	const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint);
 	if (!dbName?.[1]) {
-		throw new Error('Incorrect endpoint provided. Expected format: wss://<account name>.gremlin.cosmos.');
+		throw new Error('Incorrect endpoint provided. Expected format: <account name>.gremlin.cosmos.azurecom');
 	}
-	const endpoint = `https://${dbName[1]}.documents.azure.com:443/`;
+	const endpoint = `https://${dbName[1]}.documents.azure.com/`;
 	const key = connectionInfo.accountKey;
 
 	return new CosmosClient({ endpoint, key });

@@ -16,13 +16,13 @@
 				"inputLabel": "Gremlin endpoint",
 				"inputKeyword": "gremlinEndpoint",
 				"inputType": "text",
-				"inputPlaceholder": "wss://*.gremlin.cosmos.azure.com:443/",
+				"inputPlaceholder": "*.gremlin.cosmos.azure.com",
 				"inputTooltip": "Paste Gremlin endpoint",
 				"defaultValue": "",
 				"validation": [
 					{
-						"regex": "^wss://.+\\.gremlin\\.cosmos\\.azure\\.com:443",
-						"message": "Gremlin endpoint must satisfy the template:\nwss://<account name>.gremlin.cosmos.azure.com:443/"
+						"regex": "^.+\\.gremlin\\.cosmos\\.azure\\.com",
+						"message": "Gremlin endpoint must satisfy the template:\n<account name>.gremlin.cosmos.azure.com"
 					}
 				]
 			},
