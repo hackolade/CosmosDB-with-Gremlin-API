@@ -166,7 +166,7 @@ module.exports = {
 					};
 
 					logger.log('info', { collection: collectionName }, 'Getting container nodes data', data.hiddenKeys);
-					await gremlinHelper.connect({ collection: collectionName });
+					await gremlinHelper.connect({ ...data, collection: collectionName });
 					const nodesData = await getNodesData(collectionName, labels, logger, {
 						recordSamplingSettings,
 						fieldInference,
@@ -442,12 +442,8 @@ function createSchemaByPartitionKeyPath(path, documents = []) {
 }
 
 const setUpDocumentClient = connectionInfo => {
-	const dbNameRegExp = /(\S*).gremlin\.cosmos\.azure.com/i;
-	const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint);
-	if (!dbName?.[1]) {
-		throw new Error('Incorrect endpoint provided. Expected format: <account name>.gremlin.cosmos.azurecom');
-	}
-	const endpoint = `https://${dbName[1]}.documents.azure.com/`;
+	const dbName = connectionInfo.azureCosmosdbAccount;
+	const endpoint = `https://${dbName}.documents.azure.com/`;
 	const key = connectionInfo.accountKey;
 
 	return new CosmosClient({ endpoint, key });
@@ -590,9 +586,14 @@ async function getAdditionalAccountInfo(connectionInfo, logger) {
 	logger.log('info', {}, 'Account additional info', connectionInfo.hiddenKeys);
 
 	try {
-		const { clientId, appSecret, tenantId, subscriptionId, resourceGroupName, gremlinEndpoint } = connectionInfo;
-		const accNameRegex = /wss:\/\/(.+)\.gremlin.+/i;
-		const accountName = accNameRegex.test(gremlinEndpoint) ? accNameRegex.exec(gremlinEndpoint)[1] : '';
+		const {
+			clientId,
+			appSecret,
+			tenantId,
+			subscriptionId,
+			resourceGroupName,
+			azureCosmosdbAccount: accountName,
+		} = connectionInfo;
 		const tokenBaseURl = `https://login.microsoftonline.com/${tenantId}/oauth2/token`;
 		const { data: tokenData } = await axios({
 			method: 'post',

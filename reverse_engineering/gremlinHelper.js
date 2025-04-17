@@ -14,11 +14,12 @@ const connect = async info => {
 };
 
 const connectToInstance = info => {
+	console.warn('>>>>>>>>>>>>>>>>>>', info);
 	return new Promise((resolve, reject) => {
 		const traversalSource = 'g';
 		const databaseName = info.database || database;
 		const accountKeyString = info.accountKey || accountKey;
-		const gremlinEndpointString = info.gremlinEndpoint || gremlinEndpoint;
+		gremlinEndpoint = `wss://${info.azureCosmosdbAccount}.gremlin.cosmos.azure.com`;
 
 		persistConnectionInfo(info);
 
@@ -27,15 +28,12 @@ const connectToInstance = info => {
 			accountKeyString,
 		);
 
-		client = new gremlin.driver.Client(
-			`wss://${gremlinEndpointString.replaceAll('wss://', '').replaceAll(':443', '')}`,
-			{
-				authenticator,
-				traversalSource,
-				rejectUnauthorized: true,
-				mimeType: 'application/vnd.gremlin-v2.0+json',
-			},
-		);
+		client = new gremlin.driver.Client(gremlinEndpoint, {
+			authenticator,
+			traversalSource,
+			rejectUnauthorized: true,
+			mimeType: 'application/vnd.gremlin-v2.0+json',
+		});
 
 		client
 			.open()
@@ -55,9 +53,6 @@ const persistConnectionInfo = info => {
 	}
 	if (info.accountKey) {
 		accountKey = info.accountKey;
-	}
-	if (info.gremlinEndpoint) {
-		gremlinEndpoint = info.gremlinEndpoint;
 	}
 };
 

@@ -41,7 +41,7 @@ module.exports = {
 
 			const containerResponse = await cosmosClient.database(containerProps.dbId).containers.createIfNotExists({
 				id: graphName,
-				partitionKey: getPartitionKey()(data.containerData),
+				partitionKey: getPartitionKey(data.containerData),
 				...applyToInstanceHelper().getContainerThroughputProps(containerProps),
 				defaultTtl: applyToInstanceHelper().getTTL(containerProps),
 			});
