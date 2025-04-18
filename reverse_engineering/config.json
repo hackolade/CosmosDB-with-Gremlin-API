@@ -6,6 +6,6 @@
 	"excludeDocKind": ["id"],
 	"scenario": "getDatabases",
 	"connectionList": ["name", "azureCosmosdbAccount"],
-	"widestColumn": "gremlinEndpoint",
+	"widestColumn": "azureCosmosdbAccount",
 	"helpUrl": "https://hackolade.com/help/Azureinstance2.html"
 }

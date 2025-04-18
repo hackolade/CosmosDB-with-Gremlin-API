@@ -13,11 +13,11 @@
 				}
 			},
 			{
-				"inputLabel": "Azure Cosmos DB Account",
+				"inputLabel": "Azure Cosmos DB Account name",
 				"inputKeyword": "azureCosmosdbAccount",
 				"inputType": "text",
 				"inputPlaceholder": "",
-				"inputTooltip": "Paste the Azure Cosmos DB account",
+				"inputTooltip": "Paste the Azure Cosmos DB account name",
 				"defaultValue": "",
 				"validation": [
 					{
@@ -32,7 +32,7 @@
 				"inputType": "password",
 				"inputPlaceholder": "",
 				"defaultValue": "",
-				"inputTooltip": "Paste the account Primary or Secondary (Read-Only) Key",
+				"inputTooltip": "Paste the account Primary or Secondary (Read-Only if doing only RE but FE will require write rights) Key",
 				"isHiddenKey": true
 			}
 		]

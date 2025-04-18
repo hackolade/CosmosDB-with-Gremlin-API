@@ -442,8 +442,19 @@ function createSchemaByPartitionKeyPath(path, documents = []) {
 }
 
 const setUpDocumentClient = connectionInfo => {
-	const dbName = connectionInfo.azureCosmosdbAccount;
-	const endpoint = `https://${dbName}.documents.azure.com/`;
+	const getHttpsEndpoint = info => {
+		// For backward compatibility with previously generated connections
+		if (info.gremlinEndpoint) {
+			const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
+			const dbName = dbNameRegExp.exec(info.gremlinEndpoint);
+
+			return `https://${dbName[1]}.documents.azure.com:443/`;
+		} else {
+			return `https://${info?.azureCosmosdbAccount}.documents.azure.com/`;
+		}
+	};
+
+	const endpoint = getHttpsEndpoint(connectionInfo);
 	const key = connectionInfo.accountKey;
 
 	return new CosmosClient({ endpoint, key });
@@ -586,14 +597,19 @@ async function getAdditionalAccountInfo(connectionInfo, logger) {
 	logger.log('info', {}, 'Account additional info', connectionInfo.hiddenKeys);
 
 	try {
-		const {
-			clientId,
-			appSecret,
-			tenantId,
-			subscriptionId,
-			resourceGroupName,
-			azureCosmosdbAccount: accountName,
-		} = connectionInfo;
+		const { clientId, appSecret, tenantId, subscriptionId, resourceGroupName } = connectionInfo;
+
+		const getAccountName = info => {
+			if (info.azureCosmosdbAccount) {
+				return info.azureCosmosdbAccount;
+			}
+
+			// For backward compatibility
+			const accNameRegex = /wss:\/\/(.+)\.gremlin.+/i;
+			const { gremlinEndpoint } = info;
+			return accNameRegex.test(gremlinEndpoint) ? accNameRegex.exec(gremlinEndpoint)[1] : '';
+		};
+
 		const tokenBaseURl = `https://login.microsoftonline.com/${tenantId}/oauth2/token`;
 		const { data: tokenData } = await axios({
 			method: 'post',
@@ -608,6 +624,7 @@ async function getAdditionalAccountInfo(connectionInfo, logger) {
 				'Content-Type': 'application/x-www-form-urlencoded',
 			},
 		});
+		const accountName = getAccountName(connectionInfo);
 		const dbAccountBaseUrl = `https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/${accountName}?api-version=2015-04-08`;
 		const { data: accountData } = await axios({
 			method: 'get',

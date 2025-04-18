@@ -19,7 +19,7 @@ const connectToInstance = info => {
 		const traversalSource = 'g';
 		const databaseName = info.database || database;
 		const accountKeyString = info.accountKey || accountKey;
-		gremlinEndpoint = `wss://${info.azureCosmosdbAccount}.gremlin.cosmos.azure.com`;
+		gremlinEndpoint = info?.gremlinEndpoint || `wss://${info.azureCosmosdbAccount}.gremlin.cosmos.azure.com`;
 
 		persistConnectionInfo(info);
 
