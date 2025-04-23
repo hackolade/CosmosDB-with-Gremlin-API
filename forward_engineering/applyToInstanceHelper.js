@@ -152,7 +152,8 @@ const applyToInstanceHelper = () => ({
 	},
 
 	getContainerThroughputProps(containerProps) {
-		if (containerProps.capacityMode === 'Serverless') {
+		const capacityModesToSkip = ['Serverless', 'Provisioned throughput'];
+		if (capacityModesToSkip.includes(containerProps.capacityMode)) {
 			return {};
 		}
 		if (containerProps.autopilot) {
