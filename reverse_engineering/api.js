@@ -15,8 +15,6 @@ module.exports = {
 	},
 
 	disconnect: function (connectionInfo, logger, cb, app) {
-		const sshService = app.require('@hackolade/ssh-service');
-		gremlinHelper.close(sshService);
 		cb();
 	},
 
@@ -54,7 +52,6 @@ module.exports = {
 	},
 
 	getDbCollectionsNames: async function (connectionInfo, logger, cb, app) {
-		const sshService = app.require('@hackolade/ssh-service');
 		try {
 			client = setUpDocumentClient(connectionInfo);
 			logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
@@ -74,7 +71,7 @@ module.exports = {
 			);
 			const result = await collections.reduce(async (acc, collection) => {
 				const res = await acc;
-				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id }, sshService);
+				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id });
 				logger.log('info', '', 'Connected to the Gremlin API', connectionInfo.hiddenKeys);
 				let collectionLabels;
 				try {
@@ -85,7 +82,7 @@ module.exports = {
 						'Collection labels list',
 						connectionInfo.hiddenKeys,
 					);
-					gremlinHelper.close(sshService);
+					gremlinHelper.close();
 				} catch (err) {
 					if (err.message?.includes('NullReferenceException')) {
 						logger.log(
@@ -94,7 +91,7 @@ module.exports = {
 							'Skipping document collection',
 							connectionInfo.hiddenKeys,
 						);
-						gremlinHelper.close(sshService);
+						gremlinHelper.close();
 						return res;
 					} else {
 						throw err;
@@ -118,8 +115,6 @@ module.exports = {
 	},
 
 	getDbCollectionsData: async function (data, logger, cb, app) {
-		const sshService = app.require('@hackolade/ssh-service');
-
 		try {
 			logger.clear();
 			logger.log('info', data, 'connectionInfo', data.hiddenKeys);
@@ -171,7 +166,7 @@ module.exports = {
 					};
 
 					logger.log('info', { collection: collectionName }, 'Getting container nodes data', data.hiddenKeys);
-					await gremlinHelper.connect({ collection: collectionName }, sshService);
+					await gremlinHelper.connect({ ...data, collection: collectionName });
 					const nodesData = await getNodesData(collectionName, labels, logger, {
 						recordSamplingSettings,
 						fieldInference,
@@ -202,7 +197,7 @@ module.exports = {
 						fieldInference,
 					);
 					packages.relationships.push(relationshipData);
-					gremlinHelper.close(sshService);
+					gremlinHelper.close();
 
 					return packages;
 				},
@@ -214,7 +209,7 @@ module.exports = {
 
 			cb(null, packages.labels, modelInfo, [].concat(...packages.relationships));
 		} catch (err) {
-			gremlinHelper.close(sshService);
+			gremlinHelper.close();
 			logger.log('error', mapError(err), 'Error');
 			cb(mapError(err));
 		}
@@ -447,12 +442,19 @@ function createSchemaByPartitionKeyPath(path, documents = []) {
 }
 
 const setUpDocumentClient = connectionInfo => {
-	const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
-	const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint);
-	if (!dbName?.[1]) {
-		throw new Error('Incorrect endpoint provided. Expected format: wss://<account name>.gremlin.cosmos.');
-	}
-	const endpoint = `https://${dbName[1]}.documents.azure.com:443/`;
+	const getHttpsEndpoint = info => {
+		// For backward compatibility with previously generated connections
+		if (info.gremlinEndpoint) {
+			const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
+			const dbName = dbNameRegExp.exec(info.gremlinEndpoint);
+
+			return `https://${dbName[1]}.documents.azure.com:443/`;
+		} else {
+			return `https://${info?.azureCosmosdbAccount}.documents.azure.com/`;
+		}
+	};
+
+	const endpoint = getHttpsEndpoint(connectionInfo);
 	const key = connectionInfo.accountKey;
 
 	return new CosmosClient({ endpoint, key });
@@ -595,9 +597,19 @@ async function getAdditionalAccountInfo(connectionInfo, logger) {
 	logger.log('info', {}, 'Account additional info', connectionInfo.hiddenKeys);
 
 	try {
-		const { clientId, appSecret, tenantId, subscriptionId, resourceGroupName, gremlinEndpoint } = connectionInfo;
-		const accNameRegex = /wss:\/\/(.+)\.gremlin.+/i;
-		const accountName = accNameRegex.test(gremlinEndpoint) ? accNameRegex.exec(gremlinEndpoint)[1] : '';
+		const { clientId, appSecret, tenantId, subscriptionId, resourceGroupName } = connectionInfo;
+
+		const getAccountName = info => {
+			if (info.azureCosmosdbAccount) {
+				return info.azureCosmosdbAccount;
+			}
+
+			// For backward compatibility
+			const accNameRegex = /wss:\/\/(.+)\.gremlin.+/i;
+			const { gremlinEndpoint } = info;
+			return accNameRegex.test(gremlinEndpoint) ? accNameRegex.exec(gremlinEndpoint)[1] : '';
+		};
+
 		const tokenBaseURl = `https://login.microsoftonline.com/${tenantId}/oauth2/token`;
 		const { data: tokenData } = await axios({
 			method: 'post',
@@ -612,6 +624,7 @@ async function getAdditionalAccountInfo(connectionInfo, logger) {
 				'Content-Type': 'application/x-www-form-urlencoded',
 			},
 		});
+		const accountName = getAccountName(connectionInfo);
 		const dbAccountBaseUrl = `https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/${accountName}?api-version=2015-04-08`;
 		const { data: accountData } = await axios({
 			method: 'get',

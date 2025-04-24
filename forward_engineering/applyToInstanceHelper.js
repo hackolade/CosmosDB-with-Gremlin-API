@@ -1,20 +1,18 @@
 const { CosmosClient, StoredProcedure, UserDefinedFunction, Trigger } = require('@azure/cosmos');
 const gremlin = require('gremlin');
+const _ = require('lodash');
 
-const applyToInstanceHelper = _ => ({
+const applyToInstanceHelper = () => ({
 	setUpDocumentClient(connectionInfo) {
-		const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
-		const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint);
-		if (!dbName?.[1]) {
-			throw new Error('Incorrect endpoint provided. Expected format: wss://<account name>.gremlin.cosmos.');
-		}
-		const endpoint = `https://${dbName[1]}.documents.azure.com:443/`;
+		const dbName = connectionInfo.azureCosmosdbAccount;
+		const endpoint = `https://${dbName}.documents.azure.com:443/`;
 		const key = connectionInfo.accountKey;
 
 		return new CosmosClient({ endpoint, key });
 	},
 
 	async getGremlinClient(connectionInfo, databaseId, collection) {
+		const gremlinEndpoint = `wss://${connectionInfo.azureCosmosdbAccount}.gremlin.cosmos.azure.com`;
 		const traversalSource = 'g';
 
 		const authenticator = new gremlin.driver.auth.PlainTextSaslAuthenticator(
@@ -22,7 +20,7 @@ const applyToInstanceHelper = _ => ({
 			connectionInfo.accountKey,
 		);
 
-		const client = new gremlin.driver.Client(connectionInfo.gremlinEndpoint, {
+		const client = new gremlin.driver.Client(gremlinEndpoint, {
 			authenticator,
 			traversalSource,
 			rejectUnauthorized: true,
@@ -154,7 +152,8 @@ const applyToInstanceHelper = _ => ({
 	},
 
 	getContainerThroughputProps(containerProps) {
-		if (containerProps.capacityMode === 'Serverless') {
+		const capacityModesToSkip = ['Serverless', 'Provisioned throughput'];
+		if (capacityModesToSkip.includes(containerProps.capacityMode)) {
 			return {};
 		}
 		if (containerProps.autopilot) {

@@ -113,7 +113,7 @@ const generateEdges = (collections, relationships, jsonData) => {
 	return edges.join(';\n\n') + ';';
 };
 
-const getGremlinScript = (_, data) => {
+const getGremlinScript = data => {
 	let { collections, relationships, jsonData, containerData, options } = data;
 	let resultScript = '';
 	const traversalSource = _.get(containerData, [0, 'traversalSource'], 'g');
@@ -147,16 +147,23 @@ const getGremlinScript = (_, data) => {
 	return resultScript;
 };
 
-const getCosmosDbScript = (_, containerData) => {
-	return JSON.stringify(
-		{
-			partitionKey: getPartitionKey(_)(containerData),
-			indexingPolicy: getIndexPolicyScript(_)(containerData),
-			...scriptHelper.addItems(_)(containerData),
-		},
-		null,
-		2,
-	);
+const getCosmosDbScript = containerData => {
+	const partitionKey = getPartitionKey(containerData);
+
+	const getContainerConfig = () => {
+		const baseConfig = {
+			indexingPolicy: getIndexPolicyScript(containerData),
+			...scriptHelper.addItems(containerData),
+		};
+		if (partitionKey) {
+			return {
+				partitionKey,
+				...baseConfig,
+			};
+		}
+		return baseConfig;
+	};
+	return JSON.stringify(getContainerConfig(), null, 2);
 };
 
 const generateContainerScript = (data, logger, cb, app) => {
@@ -167,16 +174,16 @@ const generateContainerScript = (data, logger, cb, app) => {
 		if (data.options.origin === 'ui') {
 			cb(null, [
 				{
-					script: getGremlinScript(_, data),
+					script: getGremlinScript(data),
 				},
 				{
-					script: getCosmosDbScript(_, data.containerData),
+					script: getCosmosDbScript(data.containerData),
 				},
 			]);
 		} else if (scriptId === 'cosmosdb') {
-			cb(null, getCosmosDbScript(_, data.containerData));
+			cb(null, getCosmosDbScript(data.containerData));
 		} else {
-			cb(null, getGremlinScript(_, data));
+			cb(null, getGremlinScript(data));
 		}
 	} catch (e) {
 		logger.log('error', { message: e.message, stack: e.stack }, 'Forward-Engineering Error');

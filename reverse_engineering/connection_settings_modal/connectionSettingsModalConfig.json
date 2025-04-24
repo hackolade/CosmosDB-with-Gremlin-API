@@ -13,16 +13,16 @@
 				}
 			},
 			{
-				"inputLabel": "Gremlin endpoint",
-				"inputKeyword": "gremlinEndpoint",
+				"inputLabel": "Azure Cosmos DB Account name",
+				"inputKeyword": "azureCosmosdbAccount",
 				"inputType": "text",
-				"inputPlaceholder": "wss://*.gremlin.cosmos.azure.com:443/",
-				"inputTooltip": "Paste Gremlin endpoint",
+				"inputPlaceholder": "",
+				"inputTooltip": "Paste the Azure Cosmos DB account name",
 				"defaultValue": "",
 				"validation": [
 					{
-						"regex": "^wss://.+\\.gremlin\\.cosmos\\.azure\\.com:443",
-						"message": "Gremlin endpoint must satisfy the template:\nwss://<account name>.gremlin.cosmos.azure.com:443/"
+						"regex": "^[a-z0-9]+(-[a-z0-9]+)*",
+						"message": "CosmosDB account name can only contain lowercase letter, number and one - character"
 					}
 				]
 			},
@@ -32,11 +32,8 @@
 				"inputType": "password",
 				"inputPlaceholder": "",
 				"defaultValue": "",
-				"inputTooltip": "Paste the account Primary or Secondary (Read-Only) Key",
-				"isHiddenKey": true,
-				"validation": {
-					"regex": "([^\\s])"
-				}
+				"inputTooltip": "Paste the account Primary or Secondary (Read-Only if doing only RE but FE will require write rights) Key",
+				"isHiddenKey": true
 			}
 		]
 	},

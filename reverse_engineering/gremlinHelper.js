@@ -2,7 +2,6 @@ const _ = require('lodash');
 const fs = require('fs');
 const gremlin = require('gremlin');
 
-let isSshTunnel = false;
 let client;
 let graphName = 'g';
 let defaultCardinality = 'single';
@@ -10,36 +9,17 @@ let database;
 let accountKey;
 let gremlinEndpoint;
 
-const connect = async (info, sshService) => {
-	if (info.ssh) {
-		const { options } = await sshService.openTunnel({
-			sshAuthMethod: info.ssh_method === 'privateKey' ? 'IDENTITY_FILE' : 'USER_PASSWORD',
-			sshTunnelHostname: info.ssh_host,
-			sshTunnelPort: info.ssh_port,
-			sshTunnelUsername: info.ssh_user,
-			sshTunnelPassword: info.ssh_password,
-			sshTunnelIdentityFile: info.ssh_key_file,
-			sshTunnelPassphrase: info.ssh_key_passphrase,
-			host: info.host,
-			port: info.port,
-		});
-
-		isSshTunnel = true;
-		info = {
-			...info,
-			...options,
-		};
-	}
-
+const connect = async info => {
 	return connectToInstance(info);
 };
 
 const connectToInstance = info => {
+	console.warn('>>>>>>>>>>>>>>>>>>', info);
 	return new Promise((resolve, reject) => {
 		const traversalSource = 'g';
 		const databaseName = info.database || database;
 		const accountKeyString = info.accountKey || accountKey;
-		const gremlinEndpointString = info.gremlinEndpoint || gremlinEndpoint;
+		gremlinEndpoint = info?.gremlinEndpoint || `wss://${info.azureCosmosdbAccount}.gremlin.cosmos.azure.com`;
 
 		persistConnectionInfo(info);
 
@@ -48,7 +28,7 @@ const connectToInstance = info => {
 			accountKeyString,
 		);
 
-		client = new gremlin.driver.Client(gremlinEndpointString, {
+		client = new gremlin.driver.Client(gremlinEndpoint, {
 			authenticator,
 			traversalSource,
 			rejectUnauthorized: true,
@@ -74,9 +54,6 @@ const persistConnectionInfo = info => {
 	if (info.accountKey) {
 		accountKey = info.accountKey;
 	}
-	if (info.gremlinEndpoint) {
-		gremlinEndpoint = info.gremlinEndpoint;
-	}
 };
 
 const testConnection = () => {
@@ -87,15 +64,10 @@ const testConnection = () => {
 	return client.submit(`${graphName}.V().next()`);
 };
 
-const close = async sshService => {
+const close = async () => {
 	if (client) {
 		client.close();
 		client = null;
-	}
-
-	if (isSshTunnel) {
-		await sshService.closeConsumer();
-		isSshTunnel = false;
 	}
 };
 

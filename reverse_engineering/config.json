@@ -5,7 +5,7 @@
 	},
 	"excludeDocKind": ["id"],
 	"scenario": "getDatabases",
-	"connectionList": ["name", "gremlinEndpoint"],
-	"widestColumn": "gremlinEndpoint",
+	"connectionList": ["name", "azureCosmosdbAccount"],
+	"widestColumn": "azureCosmosdbAccount",
 	"helpUrl": "https://hackolade.com/help/Azureinstance2.html"
 }
