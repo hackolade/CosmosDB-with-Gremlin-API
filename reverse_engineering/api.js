@@ -13,8 +13,6 @@ module.exports = {
 	connect: function (connectionInfo, logger, cb, app) {
 		setDependencies(app);
 		_ = dependencies.lodash;
-		logger.clear();
-		logger.log('info', connectionInfo, 'connectionInfo', connectionInfo.hiddenKeys);
 		cb();
 	},
 
@@ -44,8 +42,6 @@ module.exports = {
 			setDependencies(app);
 			_ = dependencies.lodash;
 			client = setUpDocumentClient(connectionInfo);
-			logger.clear();
-			logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
 
 			const dbsData = await getDatabasesData();
 			const dbs = dbsData.map(item => item.id);
@@ -67,13 +63,7 @@ module.exports = {
 			setDependencies(app);
 			_ = dependencies.lodash;
 			client = setUpDocumentClient(connectionInfo);
-			logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
-			logger.log(
-				'info',
-				{ Database: connectionInfo.database },
-				'Getting collections list for current database',
-				connectionInfo.hiddenKeys,
-			);
+
 			const collections = await listCollections(connectionInfo.database);
 
 			logger.log(
@@ -133,8 +123,6 @@ module.exports = {
 		try {
 			setDependencies(app);
 			_ = dependencies.lodash;
-			logger.clear();
-			logger.log('info', data, 'connectionInfo', data.hiddenKeys);
 
 			const collections = data.collectionData.collections;
 			const collectionNames = data.collectionData.dataBaseNames;

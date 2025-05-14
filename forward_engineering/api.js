@@ -39,9 +39,6 @@ module.exports = {
 	async applyToInstance(data, logger, cb, app) {
 		try {
 			_ = app.require('lodash');
-			logger.clear();
-			logger.log('info', data, data.hiddenKeys);
-
 			if (!data.script) {
 				return cb({ message: 'Empty script' });
 			}
@@ -137,8 +134,6 @@ module.exports = {
 	},
 
 	async testConnection(connectionInfo, logger, cb, app) {
-		logger.clear();
-		logger.log('info', connectionInfo, 'Test connection', connectionInfo.hiddenKeys);
 		try {
 			_ = app.require('lodash');
 			const client = applyToInstanceHelper(_).setUpDocumentClient(connectionInfo);
