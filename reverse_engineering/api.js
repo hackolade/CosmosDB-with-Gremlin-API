@@ -1,31 +1,23 @@
-'use strict';
-
-const async = require('async');
-let _;
-const { setDependencies, dependencies } = require('./appDependencies');
-const { CosmosClient } = require('@azure/cosmos');
+const _ = require('lodash');
 const axios = require('axios');
+const async = require('async');
 const qs = require('qs');
+const { CosmosClient } = require('@azure/cosmos');
 const gremlinHelper = require('./gremlinHelper');
+
 let client;
 
 module.exports = {
 	connect: function (connectionInfo, logger, cb, app) {
-		setDependencies(app);
-		_ = dependencies.lodash;
 		cb();
 	},
 
 	disconnect: function (connectionInfo, logger, cb, app) {
-		const sshService = app.require('@hackolade/ssh-service');
-		gremlinHelper.close(sshService);
 		cb();
 	},
 
 	testConnection: async function (connectionInfo, logger, cb, app) {
 		try {
-			setDependencies(app);
-			_ = dependencies.lodash;
 			logger.clear();
 			client = setUpDocumentClient(connectionInfo);
 
@@ -39,8 +31,6 @@ module.exports = {
 
 	getDatabases: async function (connectionInfo, logger, cb, app) {
 		try {
-			setDependencies(app);
-			_ = dependencies.lodash;
 			client = setUpDocumentClient(connectionInfo);
 
 			const dbsData = await getDatabasesData();
@@ -58,10 +48,7 @@ module.exports = {
 	},
 
 	getDbCollectionsNames: async function (connectionInfo, logger, cb, app) {
-		const sshService = app.require('@hackolade/ssh-service');
 		try {
-			setDependencies(app);
-			_ = dependencies.lodash;
 			client = setUpDocumentClient(connectionInfo);
 
 			const collections = await listCollections(connectionInfo.database);
@@ -74,7 +61,7 @@ module.exports = {
 			);
 			const result = await collections.reduce(async (acc, collection) => {
 				const res = await acc;
-				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id }, sshService);
+				await gremlinHelper.connect({ ...connectionInfo, collection: collection.id });
 				logger.log('info', '', 'Connected to the Gremlin API', connectionInfo.hiddenKeys);
 				let collectionLabels;
 				try {
@@ -85,7 +72,7 @@ module.exports = {
 						'Collection labels list',
 						connectionInfo.hiddenKeys,
 					);
-					gremlinHelper.close(sshService);
+					gremlinHelper.close();
 				} catch (err) {
 					if (err.message?.includes('NullReferenceException')) {
 						logger.log(
@@ -94,7 +81,7 @@ module.exports = {
 							'Skipping document collection',
 							connectionInfo.hiddenKeys,
 						);
-						gremlinHelper.close(sshService);
+						gremlinHelper.close();
 						return res;
 					} else {
 						throw err;
@@ -118,12 +105,7 @@ module.exports = {
 	},
 
 	getDbCollectionsData: async function (data, logger, cb, app) {
-		const sshService = app.require('@hackolade/ssh-service');
-
 		try {
-			setDependencies(app);
-			_ = dependencies.lodash;
-
 			const collections = data.collectionData.collections;
 			const collectionNames = data.collectionData.dataBaseNames;
 			const fieldInference = data.fieldInference;
@@ -155,25 +137,23 @@ module.exports = {
 					const { autopilot, throughput, capacityMode } = getOfferProps(offerInfo);
 					const partitionKey = getPartitionKey(collection);
 					const indexes = getIndexes(collection.indexingPolicy);
-					const bucketInfo = Object.assign(
-						{
-							dbId: data.database,
-							throughput,
-							autopilot,
-							partitionKey,
-							capacityMode,
-							uniqueKey: getUniqueKeys(collection),
-							storedProcs,
-							triggers,
-							udfs,
-							TTL: getTTL(collection.defaultTtl),
-							TTLseconds: collection.defaultTtl,
-						},
-						indexes,
-					);
+					const bucketInfo = {
+						dbId: data.database,
+						throughput,
+						autopilot,
+						partitionKey,
+						capacityMode,
+						uniqueKey: getUniqueKeys(collection),
+						storedProcs,
+						triggers,
+						udfs,
+						TTL: getTTL(collection.defaultTtl),
+						TTLseconds: collection.defaultTtl,
+						...indexes,
+					};
 
 					logger.log('info', { collection: collectionName }, 'Getting container nodes data', data.hiddenKeys);
-					await gremlinHelper.connect({ collection: collectionName }, sshService);
+					await gremlinHelper.connect({ ...data, collection: collectionName });
 					const nodesData = await getNodesData(collectionName, labels, logger, {
 						recordSamplingSettings,
 						fieldInference,
@@ -204,7 +184,7 @@ module.exports = {
 						fieldInference,
 					);
 					packages.relationships.push(relationshipData);
-					gremlinHelper.close(sshService);
+					gremlinHelper.close();
 
 					return packages;
 				},
@@ -214,9 +194,9 @@ module.exports = {
 				},
 			);
 
-			cb(null, packages.labels, modelInfo, [].concat.apply([], packages.relationships));
+			cb(null, packages.labels, modelInfo, [].concat(...packages.relationships));
 		} catch (err) {
-			gremlinHelper.close(sshService);
+			gremlinHelper.close();
 			logger.log('error', mapError(err), 'Error');
 			cb(mapError(err));
 		}
@@ -242,7 +222,7 @@ const isEmptyLabel = documents => {
 };
 
 const getTemplate = (documents, rootTemplateArray = []) => {
-	const template = rootTemplateArray.reduce((template, key) => Object.assign({}, template, { [key]: {} }), {});
+	const template = rootTemplateArray.reduce((template, key) => ({ ...template, [key]: {} }), {});
 
 	if (!_.isArray(documents)) {
 		return template;
@@ -403,13 +383,13 @@ const mapError = error => {
 };
 
 function createSchemaByPartitionKeyPath(path, documents = []) {
-	const checkIfDocumentContaintPath = (path, document = {}) => {
+	const checkIfDocumentContainsPath = (path, document = {}) => {
 		if (_.isEmpty(path)) {
 			return true;
 		}
 		const value = _.get(document, `${path[0]}`);
 		if (value) {
-			return checkIfDocumentContaintPath(_.tail(path), value);
+			return checkIfDocumentContainsPath(_.tail(path), value);
 		}
 		return false;
 	};
@@ -437,7 +417,7 @@ function createSchemaByPartitionKeyPath(path, documents = []) {
 	if (namePath.length === 0) {
 		return false;
 	}
-	if (!documents.some(doc => checkIfDocumentContaintPath(namePath, doc))) {
+	if (!documents.some(doc => checkIfDocumentContainsPath(namePath, doc))) {
 		return false;
 	}
 
@@ -449,12 +429,19 @@ function createSchemaByPartitionKeyPath(path, documents = []) {
 }
 
 const setUpDocumentClient = connectionInfo => {
-	const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
-	const dbName = dbNameRegExp.exec(connectionInfo.gremlinEndpoint);
-	if (!dbName || !dbName[1]) {
-		throw new Error('Incorrect endpoint provided. Expected format: wss://<account name>.gremlin.cosmos.');
-	}
-	const endpoint = `https://${dbName[1]}.documents.azure.com:443/`;
+	const getHttpsEndpoint = info => {
+		// For backward compatibility with previously generated connections
+		if (info.gremlinEndpoint) {
+			const dbNameRegExp = /wss:\/\/(\S*).gremlin\.cosmos\./i;
+			const dbName = dbNameRegExp.exec(info.gremlinEndpoint);
+
+			return `https://${dbName[1]}.documents.azure.com:443/`;
+		} else {
+			return `https://${info?.azureCosmosdbAccount}.documents.azure.com/`;
+		}
+	};
+
+	const endpoint = getHttpsEndpoint(connectionInfo);
 	const key = connectionInfo.accountKey;
 
 	return new CosmosClient({ endpoint, key });
@@ -491,8 +478,6 @@ async function getOfferType(collection, logger) {
 		return offer.length > 0 && offer[0];
 	} catch (e) {
 		logger.log('error', { message: e.message, stack: e.stack }, '[Warning] Error querying offers');
-
-		return;
 	}
 }
 
@@ -599,9 +584,19 @@ async function getAdditionalAccountInfo(connectionInfo, logger) {
 	logger.log('info', {}, 'Account additional info', connectionInfo.hiddenKeys);
 
 	try {
-		const { clientId, appSecret, tenantId, subscriptionId, resourceGroupName, gremlinEndpoint } = connectionInfo;
-		const accNameRegex = /wss:\/\/(.+)\.gremlin.+/i;
-		const accountName = accNameRegex.test(gremlinEndpoint) ? accNameRegex.exec(gremlinEndpoint)[1] : '';
+		const { clientId, appSecret, tenantId, subscriptionId, resourceGroupName } = connectionInfo;
+
+		const getAccountName = info => {
+			if (info.azureCosmosdbAccount) {
+				return info.azureCosmosdbAccount;
+			}
+
+			// For backward compatibility
+			const accNameRegex = /wss:\/\/(.+)\.gremlin.+/i;
+			const { gremlinEndpoint } = info;
+			return accNameRegex.test(gremlinEndpoint) ? accNameRegex.exec(gremlinEndpoint)[1] : '';
+		};
+
 		const tokenBaseURl = `https://login.microsoftonline.com/${tenantId}/oauth2/token`;
 		const { data: tokenData } = await axios({
 			method: 'post',
@@ -616,6 +611,7 @@ async function getAdditionalAccountInfo(connectionInfo, logger) {
 				'Content-Type': 'application/x-www-form-urlencoded',
 			},
 		});
+		const accountName = getAccountName(connectionInfo);
 		const dbAccountBaseUrl = `https://management.azure.com/subscriptions/${subscriptionId}/resourceGroups/${resourceGroupName}/providers/Microsoft.DocumentDB/databaseAccounts/${accountName}?api-version=2015-04-08`;
 		const { data: accountData } = await axios({
 			method: 'get',
@@ -706,9 +702,9 @@ function getIndexes(indexingPolicy) {
 }
 
 const getIndexPathType = path => {
-	if (/\?$/.test(path)) {
+	if (path.endsWith('?')) {
 		return '?';
-	} else if (/\*$/.test(path)) {
+	} else if (path.endsWith('*')) {
 		return '*';
 	} else {
 		return '';
