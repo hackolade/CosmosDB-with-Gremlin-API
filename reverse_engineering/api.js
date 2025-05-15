@@ -9,8 +9,6 @@ let client;
 
 module.exports = {
 	connect: function (connectionInfo, logger, cb, app) {
-		logger.clear();
-		logger.log('info', connectionInfo, 'connectionInfo', connectionInfo.hiddenKeys);
 		cb();
 	},
 
@@ -34,8 +32,6 @@ module.exports = {
 	getDatabases: async function (connectionInfo, logger, cb, app) {
 		try {
 			client = setUpDocumentClient(connectionInfo);
-			logger.clear();
-			logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
 
 			const dbsData = await getDatabasesData();
 			const dbs = dbsData.map(item => item.id);
@@ -54,13 +50,7 @@ module.exports = {
 	getDbCollectionsNames: async function (connectionInfo, logger, cb, app) {
 		try {
 			client = setUpDocumentClient(connectionInfo);
-			logger.log('info', connectionInfo, 'Reverse-Engineering connection settings', connectionInfo.hiddenKeys);
-			logger.log(
-				'info',
-				{ Database: connectionInfo.database },
-				'Getting collections list for current database',
-				connectionInfo.hiddenKeys,
-			);
+
 			const collections = await listCollections(connectionInfo.database);
 
 			logger.log(
@@ -116,9 +106,6 @@ module.exports = {
 
 	getDbCollectionsData: async function (data, logger, cb, app) {
 		try {
-			logger.clear();
-			logger.log('info', data, 'connectionInfo', data.hiddenKeys);
-
 			const collections = data.collectionData.collections;
 			const collectionNames = data.collectionData.dataBaseNames;
 			const fieldInference = data.fieldInference;
