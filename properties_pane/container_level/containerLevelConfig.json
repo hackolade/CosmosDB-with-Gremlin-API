@@ -288,6 +288,8 @@ making sure that you maintain a proper JSON format.
 							"front": true,
 							"maxField": 1,
 							"root": true,
+							"checkbox": "/*",
+							"rootTemplate": "/*",
 							"lastArray": "*",
 							"ending": {
 								"document": "*",
@@ -397,6 +399,8 @@ making sure that you maintain a proper JSON format.
 							"front": true,
 							"maxField": 1,
 							"root": true,
+							"checkbox": "/*",
+							"rootTemplate": "/*",
 							"lastArray": "*",
 							"ending": {
 								"document": "*",
