@@ -20,6 +20,7 @@
             },
             "enableComplexTypesNormalization": true,
             "requireComplexTypesNormalization": true,
+            "restrictNestedFieldsAsPrimaryKey": false,
             "graphDB": true,
             "relationships": {
                 "connectOnEntityLevel": true,
